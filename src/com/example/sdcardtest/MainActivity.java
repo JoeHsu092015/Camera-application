@@ -1,6 +1,7 @@
 package com.example.sdcardtest;
 
 
+import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -13,12 +14,17 @@ import java.util.concurrent.TimeUnit;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.content.pm.ActivityInfo;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.ImageFormat;
+import android.graphics.Matrix;
 import android.hardware.Camera;
 import android.hardware.Camera.Parameters;
 import android.hardware.Camera.PictureCallback;
 import android.hardware.Camera.Size;
 import android.media.CamcorderProfile;
+import android.media.ExifInterface;
 import android.media.MediaRecorder;
 import android.os.Bundle;
 import android.os.StatFs;
@@ -27,6 +33,7 @@ import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
 import android.view.View.OnClickListener;
+import android.view.Window;
 import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.TextView;
@@ -51,8 +58,9 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback{
 	
 	private static String SDcardPath;
 	private int VIDEO_LENGTH = 600000;//ms
-	private int PIC_NUM = 100;
+	private int PIC_NUM = 2;
 	private int takeCount=1;  
+	private int testNum = 0;
 	private static Semaphore mutex = new Semaphore(1);
 	
 	@Override
@@ -61,10 +69,10 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback{
 		setContentView(R.layout.activity_main);
 		this.initialize();
 		getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-		/*requestWindowFeature(Window.FEATURE_NO_TITLE);
-		getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
-		WindowManager.LayoutParams.FLAG_FULLSCREEN);
-		setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);*/
+		//requestWindowFeature(Window.FEATURE_NO_TITLE);
+		/*getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
+		WindowManager.LayoutParams.FLAG_FULLSCREEN);*/
+		//setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
 		
 	   
 	}
@@ -121,6 +129,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback{
 				             public void run() {
 				            	 try{
 				            		 //RecordVideo();
+				            		 
 						         	 takePicture();
 						         	 startProc = false;
 				            	 } catch (Exception e){
@@ -218,12 +227,12 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback{
 		mediarecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
 		mediarecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
 		mediarecorder.setVideoFrameRate(CamcorderProfile.get(quality).videoFrameRate);
-        mediarecorder.setVideoEncodingBitRate(CamcorderProfile.get(quality).videoBitRate);
-        mediarecorder.setAudioEncodingBitRate(CamcorderProfile.get(quality).audioBitRate);
-        mediarecorder.setAudioChannels(CamcorderProfile.get(quality).audioChannels);
-        mediarecorder.setAudioSamplingRate(CamcorderProfile.get(quality).audioSampleRate);
-        mediarecorder.setMaxFileSize(sdcardSpaceStat.getAvailableBlocks()* sdcardSpaceStat.getBlockSize());
-        mediarecorder.setVideoEncoder(MediaRecorder.VideoEncoder.H264);
+		mediarecorder.setVideoEncodingBitRate(CamcorderProfile.get(quality).videoBitRate);
+		mediarecorder.setAudioEncodingBitRate(CamcorderProfile.get(quality).audioBitRate);
+		mediarecorder.setAudioChannels(CamcorderProfile.get(quality).audioChannels);
+		mediarecorder.setAudioSamplingRate(CamcorderProfile.get(quality).audioSampleRate);
+		mediarecorder.setMaxFileSize(sdcardSpaceStat.getAvailableBlocks()* sdcardSpaceStat.getBlockSize());
+		mediarecorder.setVideoEncoder(MediaRecorder.VideoEncoder.H264);
 		mediarecorder.setVideoSize(videoWidth,videoHeight);
 		mediarecorder.setOrientationHint(90);
 		/*mediarecorder.setProfile(CamcorderProfile.get(CamcorderProfile.QUALITY_QCIF));
@@ -278,9 +287,10 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback{
 			picHeight = picSizeList.get(i+1);
 			Log.e(tag,picWidth+"x"+ picHeight);
 			
+			
+			
 			//sendtoCurrent("Resolution: "+picWidth+"x"+picHeight);
 			takePictureProc(picWidth,picHeight);
-				
 				
 		}
 		sendtoStatus("Take picture finish");
@@ -290,30 +300,28 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback{
 	
 	public void takePictureProc(int picWidth,int picHeight){
 		
-		if(camera==null)
-			return;
-		
 		Camera.Parameters params =camera.getParameters();
+		params.setRotation(90);
 		params.setPictureFormat(ImageFormat.JPEG);
 		params.setPictureSize(picWidth,picHeight);
-		params.setRotation(90);
+		
 		camera.setParameters(params);
 		takeCount = 1;
 		enoughSpace = true;
-		
 		
 		//sendtoUI("Resolution "+picWidth+"x"+ picHeight);
 		while(takeCount<=PIC_NUM){
 			try {
 				//Log.e(tag, "lock()");
 				mutex.acquire();
+				testNum++;
 				takeFlag = true;
-				if(!enoughSpace) break;
-				
+				if(!enoughSpace) {
+					mutex.release();
+					break;
+				}
 				sendtoCurrent(picWidth+"x"+picHeight+" "+(takeCount++));
-				camera.setPreviewCallback(null);
 				camera.takePicture(null,null,jpeg);
-				
 				//Log.e(tag, "Lsew "+takeFlag);
 			} catch (RuntimeException e){
 				//Toast.makeText(MainActivity.this,"Camera Failed", Toast.LENGTH_SHORT).show();
@@ -324,19 +332,18 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback{
 				
 				e.printStackTrace();
 			}
-			
-			
-				
 		}
 		
 		while(takeFlag);
 		
-		
+		Log.e(tag, "testNum= "+testNum);
+		//sendtoStatus(""+testNum);
 		Log.e(tag, "finish");
 	}
 	
 	private PictureCallback jpeg = new PictureCallback() {
 		public void onPictureTaken(byte[] data, Camera camera) {
+			//sendtoStatus("onPictureTaken");
 			File file = null;
 			FileOutputStream outStream = null;
 			/*Bitmap bmTmp = BitmapFactory.decodeByteArray(data, 0, data.length);
@@ -345,14 +352,17 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback{
 			matrix.postRotate(90);
 			Bitmap bm = Bitmap.createBitmap(bmTmp, 0, 0, bmTmp.getWidth(), bmTmp.getHeight(), matrix, true);*/
 			try {
+				
 				file  = createPictureFile();
 				outStream = new FileOutputStream(file);
 				outStream.write(data);
 				outStream.close();
-				//BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(file));  
-				//bm.compress(Bitmap.CompressFormat.JPEG,80,bos);
-				//bos.flush();
-				//bos.close();
+				/*file  = createPictureFile();
+				
+				BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(file));  
+				bm.compress(Bitmap.CompressFormat.JPEG,80,bos);
+				bos.flush();
+				bos.close();*/
 				//Log.e(tag, "startPreview");
 				camera.startPreview();
 				//Log.e(tag, "take "+takeCount);
@@ -360,10 +370,11 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback{
 				
 				
 			} catch (FileNotFoundException e) {
+				Log.e(tag,"TException:" +e.getCause().toString());
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			} catch (IOException e) {
-				
+				Log.e(tag,"TException:" +e.getCause().toString());
 				if(e.getCause().toString().indexOf("ENOSPC")!=-1){
 					enoughSpace = false;
 					file.delete();
@@ -377,12 +388,14 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback{
 				//Toast.makeText(MainActivity.this,"Camera Failed", Toast.LENGTH_SHORT).show();
 				e.printStackTrace();
 			} catch (Exception e){
-				Log.e(tag,"Exception:" +e.getCause().toString());
+				Log.e(tag,"TException:" +e.getCause().toString());
 				e.printStackTrace();
 			} finally {
 				//Log.e(tag, "unlock()");
-				mutex.release();
+				
+				testNum--;
 				takeFlag = false;
+				mutex.release();
 			}
 		}
 	};
@@ -403,10 +416,13 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback{
 	  // TODO Auto-generated method stub
 		
 		try {
+		
 			camera.setPreviewDisplay(surfaceHolder);
 			
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
+			camera.release();
+			camera = null;
 			e.printStackTrace();
 		}
 	}
@@ -471,32 +487,34 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback{
 	
 	public List<Integer> getPhoneSupportedSizes(int type){
 		List<Size> a;
-		double size1 = 16.0/9.0;
-		double size2 = 4.0/3.0;
-		double size3 = 11.0/9.0;
-		List<Integer> intList = new ArrayList<Integer>();
+		
+		List<Integer> phoneSupportedList = new ArrayList<Integer>();
 		if(type==0){
+			double size1 = 16.0/9.0;
+			double size2 = 4.0/3.0;
+			double size3 = 11.0/9.0;
 			a = camera.getParameters().getSupportedVideoSizes();
 			for(int i = 0;i< a.size();i++){
 				double tmp = (double)a.get(i).width/(double)a.get(i).height;
 				//Log.e(tag, "tmp "+tmp +"size1 "+size1+"size2 "+size2+"size3 "+size3);
 				if((tmp==size1)||(tmp==size2)||(tmp==size3)){
-					intList.add(a.get(i).width);
-					intList.add(a.get(i).height);
+					phoneSupportedList.add(a.get(i).width);
+					phoneSupportedList.add(a.get(i).height);
 					//Log.e(tag, "SupportSize "+a.get(i).width+"x"+a.get(i).height);
 				}
 			}
 		}else{
 			a = camera.getParameters().getSupportedPictureSizes();
 			for(int i = 0;i< a.size();i++){
-				intList.add(a.get(i).width);
-				intList.add(a.get(i).height);
+				phoneSupportedList.add(a.get(i).width);
+				phoneSupportedList.add(a.get(i).height);
+				Log.e(tag, "picSize "+a.get(i).width+"x"+a.get(i).height);
 			}
 		}
 				
 			//Log.e(tag, "videoSize = " +a.get(i).width +"x"+a.get(i).height);
 		
-		return intList;
+		return phoneSupportedList;
 	}
 	
 	public void sendtoCurrent(final String x){
@@ -512,7 +530,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback{
 		runOnUiThread(new Runnable() {
             @Override
 			public void run() {
-            	testView2.append(x+"\n");
+            	testView2.append(x+" ");
             }
         });
     }
@@ -541,7 +559,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback{
 	}
 	
 	public ArrayList<String> getDirectoryFileList(){
-		String SDcardPath = System.getenv("SECONDARY_STORAGE")+"/Android/data/com.example.sdcardtest/video";
+		String SDcardPath = System.getenv("SECONDARY_STORAGE")+"/Android/data/com.example.sdcardtest/picture";
 		File f = new File(SDcardPath);
         ArrayList<String> fileList = new ArrayList<String>();
         if(f.isDirectory()) {
@@ -567,9 +585,9 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback{
 		    		Toast.makeText(MainActivity.this,"No video file", Toast.LENGTH_SHORT).show();
 		    	else{
 		    		if(!startProc){
-		    			Toast.makeText(MainActivity.this,"Running..", Toast.LENGTH_SHORT).show();
+		    			
 		    			Intent intent = new Intent();
-				        intent.setClass(MainActivity.this, PlayActivity.class);
+				        intent.setClass(MainActivity.this, PhotoActivity.class);
 				        startActivity(intent);
 		    			
 		    		}else{
