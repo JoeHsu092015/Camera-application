@@ -54,25 +54,26 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback{
 	private boolean sdcardExisted = true; 
 	private boolean startProc = false;
 	private boolean enoughSpace = true;
-	private boolean takeFlag = true;
+	private boolean handlePic = true;
 	
 	private static String SDcardPath;
 	private int VIDEO_LENGTH = 600000;//ms
-	private int PIC_NUM = 2;
+	private int PIC_NUM = 100;
 	private int takeCount=1;  
-	private int testNum = 0;
+	//private int testNum = 0;
 	private static Semaphore mutex = new Semaphore(1);
 	
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
+		getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+		/*requestWindowFeature(Window.FEATURE_NO_TITLE);
+		getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
+		WindowManager.LayoutParams.FLAG_FULLSCREEN);*/
+		setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
 		setContentView(R.layout.activity_main);
 		this.initialize();
-		getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-		//requestWindowFeature(Window.FEATURE_NO_TITLE);
-		/*getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
-		WindowManager.LayoutParams.FLAG_FULLSCREEN);*/
-		//setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
+		
 		
 	   
 	}
@@ -96,6 +97,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback{
 	protected void onResume(){
 		camera = Camera.open();
 		camera.setDisplayOrientation(90);
+		
 		super.onResume();
 	}
 	
@@ -128,8 +130,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback{
 						new Thread(new Runnable() {
 				             public void run() {
 				            	 try{
-				            		 //RecordVideo();
-				            		 
+				            		 RecordVideo();
 						         	 takePicture();
 						         	 startProc = false;
 				            	 } catch (Exception e){
@@ -149,6 +150,8 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback{
 	};
 	
 	public void RecordVideo(){
+		
+		int tmpVideoLength = VIDEO_LENGTH;
 		long startTime,durationTime;
 		int videoWidth,videoHeight;
 		List<Integer> videoSizeList = getPhoneSupportedSizes(0);
@@ -163,13 +166,16 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback{
 			
 			videoWidth = videoSizeList.get(i);
 			videoHeight = videoSizeList.get(i+1);
-			
-			if(videoWidth>1280)
-				continue;
+			if(videoWidth==3840){//4K Resolution record time limited
+				//continue;
+				if(VIDEO_LENGTH>300000) 
+					VIDEO_LENGTH = 300000;
+			}
 			startRecord(videoWidth,videoHeight);
 			Log.e(tag, "RECORD "+videoWidth+"x"+videoHeight);
 			startTime = System.currentTimeMillis();
 			durationTime = System.currentTimeMillis() - startTime;
+			
 			while(durationTime<VIDEO_LENGTH){
 				timeString = String.format("%d min, %d sec", 
 					    TimeUnit.MILLISECONDS.toMinutes(durationTime),
@@ -182,9 +188,9 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback{
 					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
-				sendtoCurrent("video "+count+"/"+totalVideoNum + ": "+ timeString);
+				sendtoCurrent("video"+ videoWidth+"x"+videoHeight+ " "+count+"/"+totalVideoNum + ": "+ timeString);
 			}
-			
+			VIDEO_LENGTH = tmpVideoLength;
 			count++;
 			stopRecord();
 		}
@@ -209,11 +215,14 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback{
 	
 	public void startRecord(int videoWidth,int videoHeight){
 		int quality = 0;
-		if(videoWidth<720)
+		String fileExtention;
+		if(videoWidth<=176){
 			quality = CamcorderProfile.QUALITY_LOW;
-		else
+			fileExtention = ".3gpp";
+		}else{
 			quality = CamcorderProfile.QUALITY_HIGH;
-		
+			fileExtention = ".mp4";
+		}
 		StatFs sdcardSpaceStat = new StatFs(System.getenv("SECONDARY_STORAGE").toString());
 		//StatFs sdcardSpaceStat = new StatFs(Environment.getExternalStorageDirectory().getPath());
 		mediarecorder = new MediaRecorder();// 創建mediarecorder物件
@@ -224,24 +233,26 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback{
 		mediarecorder.setVideoSource(MediaRecorder.VideoSource.CAMERA);
 		//Log.e(tag, "setVideoSource");
 		mediarecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
-		mediarecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
-		mediarecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
-		mediarecorder.setVideoFrameRate(CamcorderProfile.get(quality).videoFrameRate);
+		//mediarecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
+		//mediarecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
+		/*mediarecorder.setVideoFrameRate(CamcorderProfile.get(quality).videoFrameRate);
 		mediarecorder.setVideoEncodingBitRate(CamcorderProfile.get(quality).videoBitRate);
 		mediarecorder.setAudioEncodingBitRate(CamcorderProfile.get(quality).audioBitRate);
 		mediarecorder.setAudioChannels(CamcorderProfile.get(quality).audioChannels);
 		mediarecorder.setAudioSamplingRate(CamcorderProfile.get(quality).audioSampleRate);
 		mediarecorder.setMaxFileSize(sdcardSpaceStat.getAvailableBlocks()* sdcardSpaceStat.getBlockSize());
-		mediarecorder.setVideoEncoder(MediaRecorder.VideoEncoder.H264);
+		mediarecorder.setVideoEncoder(MediaRecorder.VideoEncoder.H264);*/
+		mediarecorder.setProfile(CamcorderProfile.get(quality));
 		mediarecorder.setVideoSize(videoWidth,videoHeight);
 		mediarecorder.setOrientationHint(90);
+		
 		/*mediarecorder.setProfile(CamcorderProfile.get(CamcorderProfile.QUALITY_QCIF));
 		 * QUALITY_HIGH > QUALITY_CIF = QUALITY_QVGA > QUALITY_QCIF = QUALITY_LOW
 		 */
 		// HTC M9(1-5) OK, SONY (1,4,5) OK
-	
+		
 		//Log.e(tag, "setVideoEncoder");
-		mediarecorder.setOutputFile(createVideoFilePath());
+		mediarecorder.setOutputFile(createVideoFilePath(fileExtention));
 		//Log.e(tag, "setOutputFile");
 		mediarecorder.setPreviewDisplay(surfaceHolder.getSurface());
 		//Log.e(tag, "setPreviewDisplay");
@@ -286,9 +297,6 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback{
 			picWidth = picSizeList.get(i);
 			picHeight = picSizeList.get(i+1);
 			Log.e(tag,picWidth+"x"+ picHeight);
-			
-			
-			
 			//sendtoCurrent("Resolution: "+picWidth+"x"+picHeight);
 			takePictureProc(picWidth,picHeight);
 				
@@ -301,11 +309,17 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback{
 	public void takePictureProc(int picWidth,int picHeight){
 		
 		Camera.Parameters params =camera.getParameters();
-		params.setRotation(90);
-		params.setPictureFormat(ImageFormat.JPEG);
-		params.setPictureSize(picWidth,picHeight);
+		try{
+			//params.setRotation(90);
+			//params.setPreviewSize(800,600);
+			params.setPictureFormat(ImageFormat.JPEG);
+			params.setPictureSize(picWidth,picHeight);
+			//params.setJpegQuality(80);
+			camera.setParameters(params);
+		} catch (IllegalArgumentException e){
+			Log.e(tag, "rotation error");
+		}
 		
-		camera.setParameters(params);
 		takeCount = 1;
 		enoughSpace = true;
 		
@@ -314,8 +328,8 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback{
 			try {
 				//Log.e(tag, "lock()");
 				mutex.acquire();
-				testNum++;
-				takeFlag = true;
+				//testNum++;
+				handlePic = true;
 				if(!enoughSpace) {
 					mutex.release();
 					break;
@@ -334,9 +348,9 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback{
 			}
 		}
 		
-		while(takeFlag);
+		while(handlePic);
 		
-		Log.e(tag, "testNum= "+testNum);
+		//Log.e(tag, "testNum= "+testNum);
 		//sendtoStatus(""+testNum);
 		Log.e(tag, "finish");
 	}
@@ -344,8 +358,11 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback{
 	private PictureCallback jpeg = new PictureCallback() {
 		public void onPictureTaken(byte[] data, Camera camera) {
 			//sendtoStatus("onPictureTaken");
+			
+			
 			File file = null;
 			FileOutputStream outStream = null;
+			
 			/*Bitmap bmTmp = BitmapFactory.decodeByteArray(data, 0, data.length);
 			Matrix matrix=new Matrix();
 			matrix.reset();
@@ -364,6 +381,9 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback{
 				bos.flush();
 				bos.close();*/
 				//Log.e(tag, "startPreview");
+				ExifInterface exifi = new ExifInterface(file.getAbsolutePath());
+				exifi.setAttribute(ExifInterface.TAG_ORIENTATION, String.valueOf(ExifInterface.ORIENTATION_ROTATE_90));
+				exifi.saveAttributes();
 				camera.startPreview();
 				//Log.e(tag, "take "+takeCount);
 				//camera.setPreviewCallback(pc);
@@ -393,8 +413,8 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback{
 			} finally {
 				//Log.e(tag, "unlock()");
 				
-				testNum--;
-				takeFlag = false;
+				//testNum--;
+				handlePic = false;
 				mutex.release();
 			}
 		}
@@ -466,13 +486,13 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback{
 		
 	}
 	
-	public String createVideoFilePath(){
+	public String createVideoFilePath(String fileExtention){
 		File appDir = new File(SDcardPath, "video"); //指定資料夾
 		if(!appDir.exists()) appDir.mkdir();
-		String name = System.currentTimeMillis() +".mp4"; //檔案以系統時間來命名
+		String name = System.currentTimeMillis() +fileExtention; //檔案以系統時間來命名
 		
 		if(!appDir.exists()) 
-			return createVideoFilePath();
+			return createVideoFilePath(fileExtention);
 		
 		return new File(appDir, name).getAbsolutePath();
 	}
@@ -487,6 +507,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback{
 	
 	public List<Integer> getPhoneSupportedSizes(int type){
 		List<Size> a;
+		
 		
 		List<Integer> phoneSupportedList = new ArrayList<Integer>();
 		if(type==0){
@@ -504,12 +525,15 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback{
 				}
 			}
 		}else{
+			
 			a = camera.getParameters().getSupportedPictureSizes();
 			for(int i = 0;i< a.size();i++){
 				phoneSupportedList.add(a.get(i).width);
 				phoneSupportedList.add(a.get(i).height);
 				Log.e(tag, "picSize "+a.get(i).width+"x"+a.get(i).height);
 			}
+			
+			
 		}
 				
 			//Log.e(tag, "videoSize = " +a.get(i).width +"x"+a.get(i).height);
