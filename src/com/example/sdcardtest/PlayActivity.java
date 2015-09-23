@@ -9,9 +9,13 @@ import android.media.MediaPlayer;
 import android.media.MediaPlayer.OnCompletionListener;
 import android.media.MediaPlayer.OnErrorListener;
 import android.os.Bundle;
+import android.view.LayoutInflater;
+import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
+import android.view.ViewGroup.LayoutParams;
 import android.widget.MediaController;
+import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.VideoView;
 
@@ -23,19 +27,28 @@ public class PlayActivity extends Activity {
 	private VideoView videoView;
 	private int fileIndex = 0;
 	private String fileName;
+	private TextView tw;
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
-		setContentView(R.layout.activity_play);
+		
 		getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-		/*requestWindowFeature(Window.FEATURE_NO_TITLE);
+		requestWindowFeature(Window.FEATURE_NO_TITLE);
 		getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
-		WindowManager.LayoutParams.FLAG_FULLSCREEN);*/
+		WindowManager.LayoutParams.FLAG_FULLSCREEN);
+		setContentView(R.layout.activity_play);
 		videoView = (VideoView) this.findViewById(R.id.videoView1);
+		
 		MediaController mc = new MediaController(this);
 		videoView.setMediaController(mc);
 		FilePATH = System.getenv("SECONDARY_STORAGE")+"/Android/data/com.example.sdcardtest/video/";
-
+		
+		LayoutInflater controlInflater = LayoutInflater.from(getBaseContext());
+		View viewControl = controlInflater.inflate(R.layout.control_play, null);
+		LayoutParams layoutParamsControl = new LayoutParams(LayoutParams.FILL_PARENT, LayoutParams.FILL_PARENT);
+		this.addContentView(viewControl, layoutParamsControl);
+		tw = (TextView) this.findViewById(R.id.play_textView);
+		
 		playVideo();
 	}
 	
@@ -46,7 +59,7 @@ public class PlayActivity extends Activity {
 		videoView.setVideoPath(FilePATH+fileName);
 		videoView.requestFocus();
 		videoView.start();
-		Toast.makeText(getApplicationContext(), "Video 1/"+fileList.size(), Toast.LENGTH_LONG).show();
+		sendtoUI("Video 1/"+fileList.size() +": "+fileName);
 		
 		videoView.setOnCompletionListener(new OnCompletionListener() {
 			@Override
@@ -59,7 +72,7 @@ public class PlayActivity extends Activity {
                 videoView.setVideoPath(FilePATH+fileName);
     			videoView.requestFocus();
     			videoView.start();
-    			Toast.makeText(getApplicationContext(), "Video "+(fileIndex+1)+"/"+fileList.size() , Toast.LENGTH_LONG).show();
+    			sendtoUI("Video "+(fileIndex+1)+"/"+fileList.size() +": "+fileName);
     			fileIndex++;
             }
         });  
@@ -86,6 +99,15 @@ public class PlayActivity extends Activity {
         }
         return fileList;
 	}
+	
+	public void sendtoUI(final String x){
+		runOnUiThread(new Runnable() {
+            @Override
+			public void run() {
+            	tw.setText(" "+x);
+            }
+        });
+    }
 	
 	public void changeActivity(){
 		Intent intent = new Intent();

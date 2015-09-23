@@ -72,11 +72,15 @@ public class PhotoActivity extends Activity {
 		image.setImageBitmap(bmp);*/
 		for(int i = 0;i<fileList.size();i++){
 			bmp = BitmapFactory.decodeFile(SdCardPath+fileList.get(i));
-			
+			if(bmp==null){
+				toast(fileList.get(i)+" can't read");
+				continue;
+			}
+				
 			out = decodeSampledBitmapFromResource(SdCardPath+fileList.get(i), sampleSize);
 			
 			//image.setImageBitmap(bmp);
-			sendtoTextView(fileList.get(i));
+			
 			try {
 				Thread.sleep(1000);
 			} catch (InterruptedException e) {
@@ -84,6 +88,7 @@ public class PhotoActivity extends Activity {
 				e.printStackTrace();
 			}
 			sendtoUI(out);
+			sendtoTextView(fileList.get(i));
 		}
 		
 		sendtoTextView("Finish");
@@ -188,6 +193,15 @@ public class PhotoActivity extends Activity {
 		}
 		return 0;
 	}
+	
+	public void toast(final String x){
+		runOnUiThread(new Runnable() {
+            @Override
+			public void run() {
+            	Toast.makeText(PhotoActivity.this,x, Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
 	
 	public ArrayList<String> getDirectoryFileList(){
 		String SDcardPath = System.getenv("SECONDARY_STORAGE")+"/Android/data/com.example.sdcardtest/picture";
