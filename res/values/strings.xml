@@ -5,5 +5,6 @@
     <string name="hello_world">Hello world!</string>
     <string name="title_activity_play">VideoActivity</string>
     <string name="title_activity_photo">PhotoActivity</string>
+    <string name="title_activity_testProc">SDcardTest</string>
 
 </resources>

@@ -5,6 +5,8 @@ import java.io.IOException;
 import java.util.ArrayList;
 
 import android.app.Activity;
+import android.app.AlertDialog;
+import android.content.DialogInterface;
 import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -12,8 +14,10 @@ import android.graphics.Matrix;
 import android.graphics.Point;
 import android.media.ExifInterface;
 import android.os.Bundle;
+import android.os.Environment;
 import android.util.Log;
 import android.view.Display;
+import android.view.KeyEvent;
 import android.view.Window;
 import android.view.WindowManager;
 import android.widget.ImageView;
@@ -25,6 +29,7 @@ public class PhotoActivity extends Activity {
 	private final String tag = "Photo";
 	private TextView tw;
 	private String SdCardPath;
+	private int intervalTime = 1000;//ms
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
@@ -32,24 +37,28 @@ public class PhotoActivity extends Activity {
 		WindowManager.LayoutParams.FLAG_FULLSCREEN);
 		requestWindowFeature(Window.FEATURE_NO_TITLE);
 		setContentView(R.layout.activity_photo);
+		Toast.makeText(getApplicationContext(), "Play Photos", Toast.LENGTH_SHORT).show();
 		
 		initialize();
 		
 	}
-	
-	public void initialize(){
+	//System.getenv("SECONDARY_STORAGE")
+	private void initialize(){
 		image = (ImageView) findViewById(R.id.imageView1);
 		tw = (TextView) this.findViewById(R.id.textView1);
 		SdCardPath = System.getenv("SECONDARY_STORAGE")+"/Android/data/com.example.sdcardtest/picture/";
+		if(getDirectoryFileList().size()==0){
+    		sendtoTextView("No photo file");
+    		return;
+		}
 		new Thread(new Runnable() {
-            public void run() {
-           	 try{
-           		playPhoto();
-           	 } catch (Exception e){
-    				// TODO Auto-generated catch block
-           		 //Toast.makeText(MainActivity.this,e.getCause().toString(), Toast.LENGTH_SHORT).show();
-    				e.printStackTrace();
-    			 }
+			public void run() {
+				try{
+	           		playPhoto();
+	           	 } catch (Exception e){
+	           		 Toast.makeText(PhotoActivity.this,e.getCause().toString(), Toast.LENGTH_SHORT).show();
+	    			e.printStackTrace();
+	           	 }
             }
 		}).start();
 	}
@@ -60,16 +69,6 @@ public class PhotoActivity extends Activity {
 		Bitmap out = null;
 		
 		int sampleSize = 2;
-		
-		/*Display display = getWindowManager().getDefaultDisplay();
-		Point size = new Point();
-		display.getSize(size);
-		int width = size.x;
-		int height = size.y;*/
-		
-		//Log.e(tag, "display "+width+"x"+height);
-		/*bmp = BitmapFactory.decodeFile(System.getenv("SECONDARY_STORAGE")+"/Android/data/com.example.sdcardtest/picture/"+fileList.get(0));
-		image.setImageBitmap(bmp);*/
 		for(int i = 0;i<fileList.size();i++){
 			bmp = BitmapFactory.decodeFile(SdCardPath+fileList.get(i));
 			if(bmp==null){
@@ -78,13 +77,9 @@ public class PhotoActivity extends Activity {
 			}
 				
 			out = decodeSampledBitmapFromResource(SdCardPath+fileList.get(i), sampleSize);
-			
-			//image.setImageBitmap(bmp);
-			
 			try {
-				Thread.sleep(1000);
+				Thread.sleep(intervalTime);
 			} catch (InterruptedException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 			sendtoUI(out);
@@ -115,45 +110,35 @@ public class PhotoActivity extends Activity {
 	
 	public static int calculateInSampleSize(
             BitmapFactory.Options options, int reqWidth, int reqHeight) {
-    // Raw height and width of image
-    final int height = options.outHeight;
-    final int width = options.outWidth;
-    int inSampleSize = 1;
-
-    if (height > reqHeight || width > reqWidth) {
-
-        final int halfHeight = height / 2;
-        final int halfWidth = width / 2;
-
-        // Calculate the largest inSampleSize value that is a power of 2 and keeps both
-        // height and width larger than the requested height and width.
-        while ((halfHeight / inSampleSize) > reqHeight
-                && (halfWidth / inSampleSize) > reqWidth) {
-            inSampleSize *= 2;
-        }
-    }
-
-    return inSampleSize;
+		// Raw height and width of image
+	    final int height = options.outHeight;
+	    final int width = options.outWidth;
+	    int inSampleSize = 1;
+	
+	    if (height > reqHeight || width > reqWidth) {
+	
+	        final int halfHeight = height / 2;
+	        final int halfWidth = width / 2;
+	        while ((halfHeight / inSampleSize) > reqHeight
+	                && (halfWidth / inSampleSize) > reqWidth) {
+	            inSampleSize *= 2;
+	        }
+	    }
+	
+	    return inSampleSize;
 	}
 	
 	public Bitmap decodeSampledBitmapFromResource(String filePath,int SampleSize) {
 		
-	    // First decode with inJustDecodeBounds=true to check dimensions
 	    final BitmapFactory.Options options = new BitmapFactory.Options();
 	    options.inJustDecodeBounds = true;
 	    
 	    BitmapFactory.decodeFile(filePath,options);
 	    
 	    int rotation = getExifInfo(filePath);
-        
-		int width = image.getWidth();
-		int height = image.getHeight();
-	    // Calculate inSampleSize
+	    
 	    options.inJustDecodeBounds = false;
 	    options.inSampleSize = SampleSize;
-	    //options.inSampleSize = calculateInSampleSize(options,width,height);
-	    // Decode bitmap with inSampleSize set
-	    
 	    options.inPurgeable = true;
 	    return RotateBitmap(BitmapFactory.decodeFile(filePath,options),rotation);
 	}
@@ -162,7 +147,6 @@ public class PhotoActivity extends Activity {
 	    Matrix matrix = new Matrix();
 	    matrix.postRotate(angle);
 	    source = Bitmap.createBitmap(source, 0, 0, source.getWidth(),source.getHeight(), matrix, true);
-	    
 	    return source;
 	}
 	
@@ -177,16 +161,11 @@ public class PhotoActivity extends Activity {
 	            	return 90;
 			case ExifInterface.ORIENTATION_ROTATE_180:
 	            	return 180;
-	                
 	            case ExifInterface.ORIENTATION_ROTATE_270:
 	            	return 270;
-	               
 	            default:    
 	            	return 0;
-	          
 			 }
-		   
-		            
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -204,7 +183,7 @@ public class PhotoActivity extends Activity {
     }
 	
 	public ArrayList<String> getDirectoryFileList(){
-		String SDcardPath = System.getenv("SECONDARY_STORAGE")+"/Android/data/com.example.sdcardtest/picture";
+		String SDcardPath =  System.getenv("SECONDARY_STORAGE")+"/Android/data/com.example.sdcardtest/picture";
 		File f = new File(SDcardPath);
         ArrayList<String> fileList = new ArrayList<String>();
         if(f.isDirectory()){
@@ -215,4 +194,30 @@ public class PhotoActivity extends Activity {
         }
         return fileList;
 	}
+	
+	@Override
+    public boolean onKeyDown(int keyCode, KeyEvent event) {
+        if (keyCode == KeyEvent.KEYCODE_BACK) {
+            new AlertDialog.Builder(PhotoActivity.this)
+	            .setTitle("Exit")
+	            .setMessage("Exit Application ?")
+	            .setIcon(R.drawable.ic_launcher)
+	            .setPositiveButton("Yes",
+	                    new DialogInterface.OnClickListener() {
+	            	@Override
+                    public void onClick(DialogInterface dialog,
+                            int which) {
+                    	android.os.Process.killProcess(android.os.Process.myPid());
+                    }
+	            })
+	            .setNegativeButton("No",
+	            		new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog,
+                            int which) {
+                    }
+	            }).show();
+        }
+        return true;
+    }
 }
