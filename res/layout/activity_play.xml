@@ -1,17 +1,15 @@
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
-    android:id="@+id/LinearLayout1"
+    android:id="@+id/FrameLayout1"
     android:layout_width="fill_parent"
     android:layout_height="fill_parent"
     android:background="#000000"
-    android:orientation="vertical"
     tools:context="${relativePackage}.${activityClass}" >
 
     <VideoView
         android:id="@+id/videoView1"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"/>
+        android:layout_width="fill_parent"
+        android:layout_height="fill_parent"
+        android:layout_gravity="center" />
 
-   
-
-</LinearLayout>
+</FrameLayout>

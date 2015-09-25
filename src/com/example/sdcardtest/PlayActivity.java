@@ -1,7 +1,12 @@
 package com.example.sdcardtest;
 
 import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
+
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.DialogInterface;
@@ -26,12 +31,14 @@ public class PlayActivity extends Activity {
 
 	
 	private final String tag = "PlayActivity";
+	private FileWriter logDataWriter = null;
 	private String FilePATH ;
 	private VideoView videoView;
 	private int fileIndex = 0;
 	private String fileName;
 	private TextView tw;
-	
+	private String failVideoFileName;
+	private String logFileName;
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
@@ -45,7 +52,7 @@ public class PlayActivity extends Activity {
 		
 		MediaController mc = new MediaController(this);
 		videoView.setMediaController(mc);
-		FilePATH =  System.getenv("SECONDARY_STORAGE")+"/Android/data/com.example.sdcardtest/video/";
+		FilePATH = System.getenv("SECONDARY_STORAGE")+"/Android/data/com.example.sdcardtest/video/";
 		
 		LayoutInflater controlInflater = LayoutInflater.from(getBaseContext());
 		View viewControl = controlInflater.inflate(R.layout.control_play, null);
@@ -53,6 +60,9 @@ public class PlayActivity extends Activity {
 		this.addContentView(viewControl, layoutParamsControl);
 		tw = (TextView) this.findViewById(R.id.play_textView);
 		Toast.makeText(getApplicationContext(), "Play Videos", Toast.LENGTH_LONG).show();
+		setBundleData();
+		initLogFile();
+		logData("Play Videos");
 		playVideo();
 	}
 	
@@ -64,11 +74,13 @@ public class PlayActivity extends Activity {
 		videoView.requestFocus();
 		videoView.start();
 		sendtoUI("Video 1/"+fileList.size() +": "+fileName);
-		
+		logData("Video 1/"+fileList.size() +": "+fileName);
 		videoView.setOnCompletionListener(new OnCompletionListener() {
 			@Override
 			public void onCompletion(MediaPlayer mc) {
             	if(fileIndex==fileList.size()){
+            		logData("Play videos finish");
+            		closeWriter();
             		changeActivity();
             		return;
             	}
@@ -77,6 +89,7 @@ public class PlayActivity extends Activity {
     			videoView.requestFocus();
     			videoView.start();
     			sendtoUI("Video "+(fileIndex+1)+"/"+fileList.size() +": "+fileName);
+    			logData("Video 1/"+fileList.size() +": "+fileName);
     			fileIndex++;
             }
         });  
@@ -86,9 +99,12 @@ public class PlayActivity extends Activity {
             public boolean onError(MediaPlayer mp, int what, int extra) {
 				//Toast.makeText(getApplicationContext(), "Error play Video: "+fileName, Toast.LENGTH_LONG).show();
 				sendtoUI("Error play Video: "+fileName);
+				logData("Error play Video: "+fileName);
 		        return false;//continue.   true=stop
             }
         });
+		
+		
 		
 	}
 	
@@ -99,6 +115,8 @@ public class PlayActivity extends Activity {
         if(f.isDirectory()){
             String []s=f.list();
             for(int i=0;i<s.length;i++) {
+            	if(s[i].equals(failVideoFileName)) continue;
+            	
                 fileList.add(s[i]);
             }
         }
@@ -114,12 +132,52 @@ public class PlayActivity extends Activity {
         });
     }
 	
+	private void setBundleData() {
+		Bundle bundle = this.getIntent().getExtras();
+		failVideoFileName = bundle.getString("failVideoFileName");
+		logFileName = bundle.getString("logFileName");
+	}
+	
+	public void logData(String log){
+		try {
+			logDataWriter.write(log+"\n");
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+	
+	public void closeWriter(){
+		try {
+			logDataWriter.flush();
+			logDataWriter.close();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+	
+	public void initLogFile() {
+        String path=Environment.getExternalStorageDirectory()+"/SDcardTestLog";
+        File file=new File(path);
+        if(!file.exists())  file.mkdir();
+        long currentTime = System.currentTimeMillis();
+        try {
+			logDataWriter = new FileWriter(path+"/"+logFileName+".txt",true);
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+	
 	public void changeActivity(){
 		Intent intent = new Intent();
         intent.setClass(PlayActivity.this, PhotoActivity.class);
         finish();
         startActivity(intent);
 	}
+	
+	
 	
 	@Override
     public boolean onKeyDown(int keyCode, KeyEvent event) {

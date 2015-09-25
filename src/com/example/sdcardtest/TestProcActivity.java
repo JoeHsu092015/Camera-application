@@ -5,7 +5,9 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
@@ -42,7 +44,7 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
-public class TestProcActivity extends Activity implements SurfaceHolder.Callback{
+public class TestProcActivity extends Activity implements SurfaceHolder.Callback {
 
 	private SurfaceView surfaceview;
 	private MediaRecorder mediarecorder;
@@ -53,195 +55,207 @@ public class TestProcActivity extends Activity implements SurfaceHolder.Callback
 	private ProgressBar progressBar;
 	private Camera camera;
 	private Configuration phoneConfigure;
-	private static Semaphore mutex = new Semaphore(1);
-	private boolean sdcardExisted = true; 
+	private FileWriter logDataWriter = null;
+	private static Semaphore mutex = new Semaphore(0);
+	private boolean sdcardExisted = true;
 	private boolean startProc = false;
 	private boolean enoughSpace = true;
 	private boolean handlePic = true;
 	private static String SDcardPath;
 	private final String tag = "Video";
-	private int VIDEO_LENGTH = 120000;//ms
-	private int PIC_NUM = 10;
+	private int VIDEO_LENGTH = 5000;// ms
+	private int PIC_NUM = 2;
 	private int totalPicCount = 1;
 	private static int progressCount = 1;
-	private char prefix = 'B';
+	private char prefix = 'A';
 	private int procPart = 0;
-	
+	private String failVideoFileName = null;
+	private String logFileName;
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		setBundleData();
 		initialize();
 	}
-	
-	private void initialize(){
+
+	private void initialize() {
 		getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 		getWindow().setFormat(PixelFormat.TRANSLUCENT);
 		requestWindowFeature(Window.FEATURE_NO_TITLE);
-		getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
-		WindowManager.LayoutParams.FLAG_FULLSCREEN);
+		getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
 		setContentView(R.layout.activity_testproc_landscape);
-		surfaceview = (SurfaceView)findViewById(R.id.surfaceView1);
-	    surfaceHolder = surfaceview.getHolder();
-	    surfaceHolder.addCallback(this); 
-	    LayoutInflater controlInflater = LayoutInflater.from(getBaseContext());
-	    phoneConfigure=getResources().getConfiguration();  
+		surfaceview = (SurfaceView) findViewById(R.id.surfaceView1);
+		surfaceHolder = surfaceview.getHolder();
+		surfaceHolder.addCallback(this);
+		LayoutInflater controlInflater = LayoutInflater.from(getBaseContext());
+		phoneConfigure = getResources().getConfiguration();
 		if (phoneConfigure.orientation == Configuration.ORIENTATION_LANDSCAPE) {
 			View viewControl = controlInflater.inflate(R.layout.control_landscape, null);
 			LayoutParams layoutParamsControl = new LayoutParams(LayoutParams.FILL_PARENT, LayoutParams.FILL_PARENT);
 			this.addContentView(viewControl, layoutParamsControl);
 			startButton = (Button) this.findViewById(R.id.control2_startButton);
 			playButton = (Button) this.findViewById(R.id.control2_playButton);
-			progressBar = (ProgressBar)findViewById(R.id.control2_progressBar);
+			progressBar = (ProgressBar) findViewById(R.id.control2_progressBar);
 			textView = (TextView) this.findViewById(R.id.control2_textView);
-		} else if (phoneConfigure.orientation == Configuration.ORIENTATION_PORTRAIT){
+		} else if (phoneConfigure.orientation == Configuration.ORIENTATION_PORTRAIT) {
 			View viewControl = controlInflater.inflate(R.layout.control_portrait, null);
 			LayoutParams layoutParamsControl = new LayoutParams(LayoutParams.FILL_PARENT, LayoutParams.FILL_PARENT);
 			this.addContentView(viewControl, layoutParamsControl);
 			startButton = (Button) this.findViewById(R.id.control_startButton);
 			playButton = (Button) this.findViewById(R.id.control_playButton);
-			progressBar = (ProgressBar)findViewById(R.id.control_progressBar);
+			progressBar = (ProgressBar) findViewById(R.id.control_progressBar);
 			textView = (TextView) this.findViewById(R.id.control_textView);
 		}
 		startButton.setOnClickListener(TestProcedureLister);
 		playButton.setOnClickListener(playButtonListener);
-	    initSDcard();
+		initSDcard();
 	}
-		
+
 	@Override
-	protected void onResume(){
+	protected void onResume() {
 		camera = Camera.open();
 		if (phoneConfigure.orientation == Configuration.ORIENTATION_PORTRAIT)
 			camera.setDisplayOrientation(90);
 		super.onResume();
 	}
-	
+
 	@Override
-	protected void onPause(){
+	protected void onPause() {
 		camera.stopPreview();
 		camera.setPreviewCallback(null);
 		camera.release();
 		super.onPause();
 	}
-	
+
 	@Override
-    public boolean onKeyDown(int keyCode, KeyEvent event) {
-        if (keyCode == KeyEvent.KEYCODE_BACK) {
-            new AlertDialog.Builder(TestProcActivity.this)
-	            .setTitle("Exit")
-	            .setMessage("Exit Application ?")
-	            .setIcon(R.drawable.ic_launcher)
-	            .setPositiveButton("Yes",
-	                    new DialogInterface.OnClickListener() {
-	            	@Override
-                    public void onClick(DialogInterface dialog,
-                            int which) {
-                    	android.os.Process.killProcess(android.os.Process.myPid());
-                    }
-	            })
-	            .setNegativeButton("No",
-	            		new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialog,
-                            int which) {
-                    }
-	            }).show();
-        }
-        return true;
-    }
-	
-	private View.OnClickListener TestProcedureLister = new View.OnClickListener(){
+	public boolean onKeyDown(int keyCode, KeyEvent event) {
+
+		if (keyCode == KeyEvent.KEYCODE_BACK) {
+			if (!startProc)
+				android.os.Process.killProcess(android.os.Process.myPid());
+
+			new AlertDialog.Builder(TestProcActivity.this).setTitle("Exit").setMessage("Exit Application ?")
+					.setIcon(R.drawable.ic_launcher).setPositiveButton("Yes", new DialogInterface.OnClickListener() {
+						@Override
+						public void onClick(DialogInterface dialog, int which) {
+							android.os.Process.killProcess(android.os.Process.myPid());
+						}
+					}).setNegativeButton("No", new DialogInterface.OnClickListener() {
+						@Override
+						public void onClick(DialogInterface dialog, int which) {
+						}
+					}).show();
+		}
+		return true;
+	}
+
+	private View.OnClickListener TestProcedureLister = new View.OnClickListener() {
 		@Override
 		public void onClick(View v) {
 			initSDcard();
-			if(sdcardExisted){
-				if(!startProc){
+			if (sdcardExisted) {
+				if (!startProc) {
 					startProc = true;
 					new Thread(new Runnable() {
-			             public void run() {
-			            	 try{
-			            		 if(procPart==2)
-				            		 while(enoughSpace)
-				 		         		testProc();
-			            		 else
-			 		         		testProc();
-			            	 } catch (Exception e){
-			     				e.printStackTrace();
-			     			 }
-			             }
+						public void run() {
+							try {
+								initLogFile();
+								if (procPart == 2)
+									while (enoughSpace){
+										startProc = true;
+										testProc();
+									}
+								else
+									testProc();
+								playData();
+							} catch (Exception e) {
+								e.printStackTrace();
+							}
+						}
 					}).start();
-				}else{
-					Toast.makeText(TestProcActivity.this,"Running..", Toast.LENGTH_SHORT).show();
+				} else {
+					Toast.makeText(TestProcActivity.this, "Running..", Toast.LENGTH_SHORT).show();
 				}
-			}else{
-				Toast.makeText(TestProcActivity.this,"SD card not found", Toast.LENGTH_SHORT).show();
-			}	
+			} else {
+				Toast.makeText(TestProcActivity.this, "SD card not found", Toast.LENGTH_SHORT).show();
+			}
 		}
 	};
-	
-	private void testProc(){
+
+	private void testProc() {
+		logData("Start test");
 		setPhoneRotation();
 		setProgressBar();
 		RecordVideo();
 		takePicture();
-		//toast("ProcGress"+progressCount);
-		finishProc();
-	}
-	
-	public void RecordVideo(){
 		
+		//toast("Progress " + progressCount);
+		finishProc();
+		logData("Finish");
+	}
+
+	public void RecordVideo() {
+		logData("Record Video");
+		String fileName = null;
 		int tmpVideoLength = VIDEO_LENGTH;
-		long startTime,durationTime;
-		int videoWidth,videoHeight;
+		long startTime, durationTime;
+		int videoWidth, videoHeight;
 		List<Integer> videoSizeList = getPhoneSupportedSizes(0);
-		String timeString;
-		for(int i = 0;i< videoSizeList.size(); i+=2){
-			if(!hasFreeVideoSize()){
-				progressCount = videoSizeList.size()/2;
+		String timeString = null;
+		for (int i = 0; i < videoSizeList.size(); i += 2) {
+			if (!hasFreeVideoSize()) {
+				progressCount = videoSizeList.size() / 2;
 				sendtoProgress(progressCount++);
-				//toast("RecordVideo() "+progressCount);
+				// toast("RecordVideo() "+progressCount);
 				break;
 			}
 			
 			videoWidth = videoSizeList.get(i);
-			videoHeight = videoSizeList.get(i+1);
-			startRecord(videoWidth,videoHeight);
-			Log.e(tag, "RECORD "+videoWidth+"x"+videoHeight);
+			videoHeight = videoSizeList.get(i + 1);
+			fileName = startRecord(videoWidth, videoHeight);
+			Log.e(tag, "RECORD " + videoWidth + "x" + videoHeight);
+			
 			startTime = System.currentTimeMillis();
 			durationTime = System.currentTimeMillis() - startTime;
-			
-			while(durationTime<VIDEO_LENGTH){
-				timeString = String.format("%d : %d", 
-					    TimeUnit.MILLISECONDS.toMinutes(durationTime),
-					    TimeUnit.MILLISECONDS.toSeconds(durationTime) - 
-					    TimeUnit.MINUTES.toSeconds(TimeUnit.MILLISECONDS.toMinutes(durationTime)));
+
+			while (durationTime < VIDEO_LENGTH) {
+				timeString = String.format("%02d : %02d", TimeUnit.MILLISECONDS.toMinutes(durationTime),
+						TimeUnit.MILLISECONDS.toSeconds(durationTime)
+								- TimeUnit.MINUTES.toSeconds(TimeUnit.MILLISECONDS.toMinutes(durationTime)));
 				try {
-					
-					if(!hasFreeVideoSize())
+
+					if (!hasFreeVideoSize()){
+						failVideoFileName = fileName;
+						logData("["+videoWidth + "x" + videoHeight+"] file name "+ fileName+" suspend: No enough space");
 						break;
+					}
+						
 					Thread.sleep(1000);
 					durationTime = System.currentTimeMillis() - startTime;
 				} catch (InterruptedException e) {
 					e.printStackTrace();
 				}
-				sendtoCurrent(videoWidth+"x"+videoHeight+"  "+timeString);
+				sendtoCurrent(videoWidth + "x" + videoHeight + "  " + timeString);
 			}
+			
+			logData("["+videoWidth + "x" + videoHeight +"] record time = "+ timeString);
 			VIDEO_LENGTH = tmpVideoLength;
 			sendtoProgress(progressCount++);
 			stopRecord();
-			
+
 		}
-		
+
 		toast("Record video finish");
 	}
-	
-	public void startRecord(int videoWidth,int videoHeight){
+
+	public String startRecord(int videoWidth, int videoHeight) {
+		String fileName = null;
 		int quality = 0;
 		String fileExtention;
-		if(videoWidth<=176){
+		if (videoWidth <= 176) {
 			quality = CamcorderProfile.QUALITY_LOW;
 			fileExtention = ".3gp";
-		}else{
+		} else {
 			quality = CamcorderProfile.QUALITY_HIGH;
 			fileExtention = ".mp4";
 		}
@@ -252,145 +266,153 @@ public class TestProcActivity extends Activity implements SurfaceHolder.Callback
 		mediarecorder.setVideoSource(MediaRecorder.VideoSource.CAMERA);
 		mediarecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
 		mediarecorder.setProfile(CamcorderProfile.get(quality));
-		mediarecorder.setVideoSize(videoWidth,videoHeight);
+		mediarecorder.setVideoSize(videoWidth, videoHeight);
 		if (phoneConfigure.orientation == Configuration.ORIENTATION_PORTRAIT)
 			mediarecorder.setOrientationHint(90);
-		mediarecorder.setOutputFile(createVideoFilePath(fileExtention));
+		fileName = createVideoFilePath(fileExtention);
+		mediarecorder.setOutputFile(SDcardPath+"/video/"+fileName);
 		mediarecorder.setPreviewDisplay(surfaceHolder.getSurface());
 		try {
 			mediarecorder.prepare();
 			mediarecorder.start();
-		}catch (Exception e) {
+		} catch (Exception e) {
 			mediarecorder.stop();
 			mediarecorder.release();
 			e.printStackTrace();
 			toast(e.getCause().toString());
 		}
-	}
-	
-	public void stopRecord(){
 		
+		return fileName;
+	}
+
+	public void stopRecord() {
+
 		if (mediarecorder != null) {
 			mediarecorder.stop();
 			mediarecorder.release();
 			mediarecorder = null;
 		}
-	
+
 	}
-	
-	public void takePicture(){
-		
-		int picWidth,picHeight;
+
+	public void takePicture() {
+
+		int picWidth, picHeight;
 		List<Integer> picSizeList = getPhoneSupportedSizes(1);
-		for(int i = 0;i< picSizeList.size(); i+=2){
-			int A = progressCount;
+		for (int i = 0; i < picSizeList.size(); i += 2) {
+			int tmp = progressCount;
 			picWidth = picSizeList.get(i);
-			picHeight = picSizeList.get(i+1);
-			takePictureProc(picWidth,picHeight);
-			progressCount = A;
+			picHeight = picSizeList.get(i + 1);
+			takePictureProc(picWidth, picHeight);
+			progressCount = tmp;
 			sendtoProgress(progressCount++);
-			//toast("takePicture() "+progressCount);
+			// toast("takePicture() "+progressCount);
 		}
-		
-		if(!enoughSpace)
-			toast("SD card no space");
+
+		/*
+		 * if(!enoughSpace) toast("SD card no space");
+		 */
 		toast("Take picture finish");
-		
+
 	}
-	
-	public void takePictureProc(int picWidth,int picHeight){
-		
-		Camera.Parameters params =camera.getParameters();
-		try{
+
+	public void takePictureProc(int picWidth, int picHeight) {
+		logData("Take Picture");
+		Camera.Parameters params = camera.getParameters();
+		try {
 			params.setPictureFormat(ImageFormat.JPEG);
-			params.setPictureSize(picWidth,picHeight);
+			params.setPictureSize(picWidth, picHeight);
 			camera.setParameters(params);
-		} catch (IllegalArgumentException e){
+		} catch (IllegalArgumentException e) {
 			Log.e(tag, "rotation error");
 		}
-		
+		sendtoCurrent(picWidth + "x" + picHeight + ": 0");
 		int takeCount = 1;
 		enoughSpace = true;
-		
-		while(takeCount<=PIC_NUM){
+		while (takeCount <= PIC_NUM) {
 			try {
-				mutex.acquire();
 				handlePic = true;
-				if(!enoughSpace) {
-				
+				camera.takePicture(null, null, jpeg);
+				mutex.acquire();
+				// handlePic = true;
+				if (!enoughSpace) {
 					handlePic = false;
-					mutex.release();
+					logData("["+picWidth + "x" + picHeight+"] take "+ takeCount +" suspend: No enough space");
+					// mutex.release();
 					break;
 				}
-				camera.takePicture(null,null,jpeg);
-			
-				sendtoCurrent(picWidth+"x"+picHeight+": "+(takeCount++));
-			} catch (RuntimeException e){
+				// camera.takePicture(null, null, jpeg);
+				sendtoCurrent(picWidth + "x" + picHeight + ": " + (takeCount++));
+
+			} catch (RuntimeException e) {
 				e.printStackTrace();
 			} catch (InterruptedException e) {
 				Log.e(tag, "281: InterruptedException");
 				e.printStackTrace();
 			}
 		}
-		
-		while(handlePic); //wait final takePicture procedure finish
-		
+		if (enoughSpace)
+			logData("["+picWidth + "x" + picHeight+"] take "+PIC_NUM);
+
+		while (handlePic);// wait final takePicture procedure finish
+
 	}
-	
+
 	private PictureCallback jpeg = new PictureCallback() {
 		public void onPictureTaken(byte[] data, Camera camera) {
-		
+
 			File file = null;
 			FileOutputStream outStream = null;
 			try {
-				
-				file  = createPictureFilePath();
+
+				file = createPictureFilePath();
 				outStream = new FileOutputStream(file);
 				outStream.write(data);
 				outStream.close();
-				if (phoneConfigure.orientation == Configuration.ORIENTATION_PORTRAIT){
+				if (phoneConfigure.orientation == Configuration.ORIENTATION_PORTRAIT) {
 					ExifInterface exifi = new ExifInterface(file.getAbsolutePath());
-					exifi.setAttribute(ExifInterface.TAG_ORIENTATION, String.valueOf(ExifInterface.ORIENTATION_ROTATE_90));
+					exifi.setAttribute(ExifInterface.TAG_ORIENTATION,
+							String.valueOf(ExifInterface.ORIENTATION_ROTATE_90));
 					exifi.saveAttributes();
-					
+
 				}
 				camera.startPreview();
-			
+
 			} catch (FileNotFoundException e) {
-				Log.e(tag,"TException:" +e.getCause().toString());
-				if(e.getCause().toString().indexOf("ENOENT")!=-1){
+				Log.e(tag, "TException:" + e.getCause().toString());
+				if (e.getCause().toString().indexOf("ENOENT") != -1) {
 					enoughSpace = false;
 					file.delete();
 				}
 				e.printStackTrace();
 			} catch (IOException e) {
-				Log.e(tag,"TException:" +e.getCause().toString());
-				if(e.getCause().toString().indexOf("ENOSPC")!=-1){
+				Log.e(tag, "TException:" + e.getCause().toString());
+				if (e.getCause().toString().indexOf("ENOSPC") != -1) {
 					enoughSpace = false;
 					file.delete();
 				}
 				e.printStackTrace();
-			} catch (RuntimeException e){
+			} catch (RuntimeException e) {
 				e.printStackTrace();
-			} catch (Exception e){
-				Log.e(tag,"TException:" +e.getCause().toString());
+			} catch (Exception e) {
+				Log.e(tag, "TException:" + e.getCause().toString());
 				e.printStackTrace();
 			} finally {
 				handlePic = false;
 				mutex.release();
-				
+
 			}
 		}
 	};
-	
+
 	@Override
 	public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
 		Camera.Parameters parameters = camera.getParameters();
-		parameters.setFocusMode(Parameters.FOCUS_MODE_CONTINUOUS_VIDEO); 
+		parameters.setFocusMode(Parameters.FOCUS_MODE_CONTINUOUS_VIDEO);
 		camera.setParameters(parameters);
 		camera.startPreview();
 	}
-	
+
 	@Override
 	public void surfaceCreated(SurfaceHolder holder) {
 		try {
@@ -401,189 +423,249 @@ public class TestProcActivity extends Activity implements SurfaceHolder.Callback
 			e.printStackTrace();
 		}
 	}
-	
+
 	@Override
 	public void surfaceDestroyed(SurfaceHolder holder) {
-	}	 
-	
+	}
+
 	public void initSDcard() {
 		sdcardExisted = true;
 		getExternalFilesDir(null);
-		SDcardPath = System.getenv("SECONDARY_STORAGE")+"/Android/data/com.example.sdcardtest/";
+		SDcardPath = System.getenv("SECONDARY_STORAGE") + "/Android/data/com.example.sdcardtest/";
 		try {
-			FileWriter fw = new FileWriter(SDcardPath+"data.txt",true);
+			FileWriter fw = new FileWriter(SDcardPath + "data.txt", true);
 		} catch (FileNotFoundException e) {
 			sdcardExisted = false;
-			Toast.makeText(this,"SD card not found", Toast.LENGTH_SHORT).show();
+			Toast.makeText(this, "SD card not found", Toast.LENGTH_SHORT).show();
 			e.printStackTrace();
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
 	}
 	
-	public String createVideoFilePath(String fileExtention){
-		File appDir = new File(SDcardPath, "video");
-		if(!appDir.exists()) appDir.mkdir();
-		String name = prefix+ String.valueOf(progressCount) +fileExtention; 
-		Log.e(tag, "video name "+name);
-		if(!appDir.exists()) 
-			return createVideoFilePath(fileExtention);
-		return new File(appDir, name).getAbsolutePath();
+	public void initLogFile() {
+        String path=Environment.getExternalStorageDirectory()+"/SDcardTestLog";
+        File file=new File(path);
+        if(!file.exists())  file.mkdir();
+        long currentTime = System.currentTimeMillis();
+
+        SimpleDateFormat formatter = new SimpleDateFormat("MM:dd:HH:mm:ss");
+        Date date = new Date(currentTime); 
+        logFileName = formatter.format(date);
+        try {
+			logDataWriter = new FileWriter(path+"/"+logFileName+".txt",true);
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 	}
-	
-	public File createPictureFilePath(){
-		File appDir = new File(SDcardPath, "picture"); 
-		if(!appDir.exists()) appDir.mkdir();
-		String name = prefix+ String.valueOf(totalPicCount) +".jpg";
+
+	public String createVideoFilePath(String fileExtention) {
+		File appDir = new File(SDcardPath, "video");
+		if (!appDir.exists())
+			appDir.mkdir();
+		String name = prefix + String.valueOf(progressCount) + fileExtention;
+		new File(appDir, name);
+		Log.e(tag, "video name " + name);
+		if (!appDir.exists())
+			return createVideoFilePath(fileExtention);
+		return name;
+	}
+
+	public File createPictureFilePath() {
+		File appDir = new File(SDcardPath, "picture");
+		if (!appDir.exists())
+			appDir.mkdir();
+		String name = prefix + String.valueOf(totalPicCount) + ".jpg";
 		totalPicCount++;
 		return new File(appDir, name);
 	}
-	
-	public List<Integer> getPhoneSupportedSizes(int type){
+
+	public List<Integer> getPhoneSupportedSizes(int type) {
 		List<Size> a;
 		List<Integer> phoneSupportedList = new ArrayList<Integer>();
 		try {
-			if(type==0){
-				double size1 = 16.0/9.0;
-				double size2 = 4.0/3.0;
-				double size3 = 11.0/9.0;
+			if (type == 0) {
+				double size1 = 16.0 / 9.0;
+				double size2 = 4.0 / 3.0;
+				double size3 = 11.0 / 9.0;
 				a = camera.getParameters().getSupportedVideoSizes();
-				for(int i = 0;i< a.size();i++){
-					double tmp = (double)a.get(i).width/(double)a.get(i).height;
-					if((tmp==size1)||(tmp==size2)||(tmp==size3)){
+				for (int i = 0; i < a.size(); i++) {
+					double tmp = (double) a.get(i).width / (double) a.get(i).height;
+					if ((tmp == size1) || (tmp == size2) || (tmp == size3)) {
 						phoneSupportedList.add(a.get(i).width);
 						phoneSupportedList.add(a.get(i).height);
 					}
 				}
-			}else if(type==1){
+			} else if (type == 1) {
 				a = camera.getParameters().getSupportedPictureSizes();
-				for(int i = 0;i< a.size();i++){
+				for (int i = 0; i < a.size(); i++) {
 					phoneSupportedList.add(a.get(i).width);
 					phoneSupportedList.add(a.get(i).height);
+					// Log.e(tag, a.get(i).width+"x"+a.get(i).height);
+
 				}
-			}else{
+			} else {
 				toast("Error type");
 				return null;
 			}
-		} catch (Exception e){
+		} catch (Exception e) {
 			e.getStackTrace();
-		
+
 		}
 		return phoneSupportedList;
 	}
-	
-	public void sendtoCurrent(final String x){
+
+	public void sendtoCurrent(final String x) {
 		runOnUiThread(new Runnable() {
-            @Override
+			@Override
 			public void run() {
-            	textView.setText(" "+x+" ");
-            }
-        });
-    }
-	
-	public void sendtoProgress(final int x){
-		runOnUiThread(new Runnable() {
-            @Override
-			public void run() {
-            	progressBar.setProgress(x);
-            }
-        });
-    }
-	
-	public void toast(final String x){
-		runOnUiThread(new Runnable() {
-            @Override
-			public void run() {
-            	Toast.makeText(TestProcActivity.this,x, Toast.LENGTH_SHORT).show();
-            }
-        });
-    }
-	
-	public boolean hasFreeVideoSize(){
-		
-		StatFs sdcardSpaceStat = new StatFs(System.getenv("SECONDARY_STORAGE").toString());
-		
-		float sdAvailSize = sdcardSpaceStat.getAvailableBlocks()* (sdcardSpaceStat.getBlockSize() / (1048576f));
-		
-	    if(sdAvailSize<=1){
-	    	toast("Video: SD card no space");
-	    	return false;
-	    }else
-	    	return true;
+				textView.setText(" " + x + " ");
+			}
+		});
 	}
-	
-	public ArrayList<String> getDirectoryFileList(){
-	
-		File f = new File(SDcardPath+"/video");
-        ArrayList<String> fileList = new ArrayList<String>();
-        if(f.isDirectory()) {
-            Log.e(tag,"filename : "+f.getName()); 
-            String []s=f.list();
-            for(int i=0;i<s.length;i++){
-                fileList.add(s[i]);
-            }
-        }
-        return fileList;
-	}
-	
-	private void setProgressBar(){
+
+	public void sendtoProgress(final int x) {
 		runOnUiThread(new Runnable() {
-            @Override
+			@Override
 			public void run() {
-            	textView.setVisibility(View.VISIBLE);
-            	progressBar.setVisibility(View.VISIBLE);
-        		List<Integer> videoTotalNum = getPhoneSupportedSizes(0);
-        		List<Integer> pictureTotalNum = getPhoneSupportedSizes(1);
-        		
-        		progressBar.setMax(videoTotalNum.size()/2+pictureTotalNum.size()/2);
-        		progressBar.setProgress(0);
-        		progressCount = 1;
-        		//toast("MAX " +progressBar.getMax());
-        		
-            }
+				progressBar.setProgress(x);
+			}
+		});
+	}
+
+	public void toast(final String x) {
+		runOnUiThread(new Runnable() {
+			@Override
+			public void run() {
+				Toast.makeText(TestProcActivity.this, x, Toast.LENGTH_SHORT).show();
+			}
 		});
 	}
 	
-	private void setPhoneRotation(){
+	public void logData(String log){
+		try {
+			logDataWriter.write(log+"\n");
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+
+	public boolean hasFreeVideoSize() {
+
+		StatFs sdcardSpaceStat = new StatFs(System.getenv("SECONDARY_STORAGE").toString());
+
+		float sdAvailSize = sdcardSpaceStat.getAvailableBlocks() * (sdcardSpaceStat.getBlockSize() / (1048576f));
+
+		if (sdAvailSize <= 1) {
+			toast("Video: SD card no space");
+			logData("Video: SD card no space");
+			return false;
+		} else
+			return true;
+	}
+
+	public ArrayList<String> getDirectoryFileList() {
+
+		File f = new File(SDcardPath + "/video");
+		ArrayList<String> fileList = new ArrayList<String>();
+		if (f.isDirectory()) {
+			Log.e(tag, "filename : " + f.getName());
+			String[] s = f.list();
+			for (int i = 0; i < s.length; i++) {
+				fileList.add(s[i]);
+			}
+		}
+		return fileList;
+	}
+
+	private void setProgressBar() {
+		runOnUiThread(new Runnable() {
+			@Override
+			public void run() {
+				textView.setVisibility(View.VISIBLE);
+				progressBar.setVisibility(View.VISIBLE);
+				List<Integer> videoTotalNum = getPhoneSupportedSizes(0);
+				List<Integer> pictureTotalNum = getPhoneSupportedSizes(1);
+				
+				while(videoTotalNum.size()==0||pictureTotalNum.size()==0){
+					videoTotalNum = getPhoneSupportedSizes(0);
+					pictureTotalNum = getPhoneSupportedSizes(1);
+				}
+					
+				progressBar.setMax(videoTotalNum.size() / 2 + pictureTotalNum.size() / 2);
+				progressBar.setProgress(0);
+				
+				//toast("MAX " + progressBar.getMax());
+
+			}
+		});
+	}
+
+	private void setPhoneRotation() {
 		if (phoneConfigure.orientation == Configuration.ORIENTATION_LANDSCAPE) {
 			setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
-		} else if (phoneConfigure.orientation == Configuration.ORIENTATION_PORTRAIT){
+		} else if (phoneConfigure.orientation == Configuration.ORIENTATION_PORTRAIT) {
 			setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
 		}
-		
+
 	}
-	
-	private void finishProc(){
-		sendtoCurrent("finish");
+
+	private void finishProc() {
+		if (!enoughSpace)
+			sendtoCurrent("SD card no space");
+		else
+			sendtoCurrent("finish");
 		prefix++;
 		totalPicCount = 1;
+		progressCount = 1;
+		try {
+			logDataWriter.flush();
+			logDataWriter.close();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
 		startProc = false;
 	}
+
+	private void setBundleData() {
+		Bundle bundle = this.getIntent().getExtras();
+		procPart = bundle.getInt("part");
+	}
 	
-	private void setBundleData(){
-		 Bundle bundle =this.getIntent().getExtras();
-		 procPart = bundle.getInt("part");
+	private void playData(){
+		Intent intent = new Intent();
+		intent.setClass(TestProcActivity.this, PlayActivity.class);
+		Bundle bundle = new Bundle();
+		bundle.putString("failVideoFileName", failVideoFileName);
+		bundle.putString("logFileName",logFileName);
+		intent.putExtras(bundle);
+		startActivity(intent);
+		TestProcActivity.this.finish();
 	}
 	
 	private OnClickListener playButtonListener = new OnClickListener() {
-	    @Override
-	    public void onClick(View v) {
-	    	if(sdcardExisted){
-		    	if(getDirectoryFileList().size()==0)
-		    		Toast.makeText(TestProcActivity.this,"No video file", Toast.LENGTH_SHORT).show();
-		    	else{
-		    		if(!startProc){
-		    			Intent intent = new Intent();
-				        intent.setClass(TestProcActivity.this, PlayActivity.class);
-				        startActivity(intent);
-				        TestProcActivity.this.finish();
-		    		}else{
-		    			Toast.makeText(TestProcActivity.this,"Running..", Toast.LENGTH_SHORT).show();
-		    		}
-		    	}
-	    	}else{
-				Toast.makeText(TestProcActivity.this,"SD card not found", Toast.LENGTH_SHORT).show();
+		@Override
+		public void onClick(View v) {
+			if (sdcardExisted) {
+				if (getDirectoryFileList().size() == 0)
+					Toast.makeText(TestProcActivity.this, "No video file", Toast.LENGTH_SHORT).show();
+				else {
+					if (!startProc) {
+						Intent intent = new Intent();
+						intent.setClass(TestProcActivity.this, PlayActivity.class);
+						startActivity(intent);
+						TestProcActivity.this.finish();
+					} else {
+						Toast.makeText(TestProcActivity.this, "Running..", Toast.LENGTH_SHORT).show();
+					}
+				}
+			} else {
+				Toast.makeText(TestProcActivity.this, "SD card not found", Toast.LENGTH_SHORT).show();
 			}
-	    }
+		}
 	};
 }
