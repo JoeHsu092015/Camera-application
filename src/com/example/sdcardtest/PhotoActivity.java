@@ -1,22 +1,19 @@
 package com.example.sdcardtest;
 
 import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
 
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.DialogInterface;
-import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Matrix;
-import android.graphics.Point;
 import android.media.ExifInterface;
 import android.os.Bundle;
 import android.os.Environment;
-import android.util.Log;
-import android.view.Display;
 import android.view.KeyEvent;
 import android.view.Window;
 import android.view.WindowManager;
@@ -29,7 +26,10 @@ public class PhotoActivity extends Activity {
 	private final String tag = "Photo";
 	private TextView tw;
 	private String SdCardPath;
+	private String logFileName;
+	private FileWriter logDataWriter = null;
 	private int intervalTime = 1000;// ms
+	private int failFile = 0;
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
@@ -37,26 +37,34 @@ public class PhotoActivity extends Activity {
 		getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
 		requestWindowFeature(Window.FEATURE_NO_TITLE);
 		setContentView(R.layout.activity_photo);
-		Toast.makeText(getApplicationContext(), "Play Photos", Toast.LENGTH_SHORT).show();
+		Toast.makeText(getApplicationContext(), "Play photos", Toast.LENGTH_SHORT).show();
 
+		setBundleData();
+		initLogFile();
 		initialize();
 
 	}
 
 	// System.getenv("SECONDARY_STORAGE")
 	private void initialize() {
+		logData("\n\nPlay photos");
 		image = (ImageView) findViewById(R.id.imageView1);
 		tw = (TextView) this.findViewById(R.id.textView1);
 		SdCardPath = System.getenv("SECONDARY_STORAGE") + "/Android/data/com.example.sdcardtest/picture/";
 		if (getDirectoryFileList().size() == 0) {
 			sendtoTextView("No photo file");
+			logData("No photo file");
+			logData("Play photos finish");
+			closeWriter();
 			return;
 		}
 		new Thread(new Runnable() {
 			public void run() {
 				try {
+
 					playPhoto();
 				} catch (Exception e) {
+					logData("initialize(): " + e.getCause().toString());
 					Toast.makeText(PhotoActivity.this, e.getCause().toString(), Toast.LENGTH_SHORT).show();
 					e.printStackTrace();
 				}
@@ -65,6 +73,7 @@ public class PhotoActivity extends Activity {
 	}
 
 	public void playPhoto() {
+
 		final ArrayList<String> fileList = getDirectoryFileList();
 		Bitmap bmp = null;
 		Bitmap out = null;
@@ -74,6 +83,8 @@ public class PhotoActivity extends Activity {
 			bmp = BitmapFactory.decodeFile(SdCardPath + fileList.get(i));
 			if (bmp == null) {
 				toast(fileList.get(i) + " can't read");
+				logData(fileList.get(i) + " can't read");
+				failFile++;
 				continue;
 			}
 
@@ -85,10 +96,12 @@ public class PhotoActivity extends Activity {
 			}
 			sendtoUI(out);
 			sendtoTextView(fileList.get(i));
+			logData("Photo :" + fileList.get(i));
 		}
-
+		logData("Total photos = " + fileList.size() + ", error = " + failFile);
 		sendtoTextView("Finish");
-
+		logData("Play photos finish");
+		closeWriter();
 	}
 
 	public void sendtoTextView(final String x) {
@@ -193,6 +206,44 @@ public class PhotoActivity extends Activity {
 		return fileList;
 	}
 
+	public void logData(String log) {
+		try {
+			logDataWriter.write(log + "\n");
+			logDataWriter.flush();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+
+	public void initLogFile() {
+		String path = Environment.getExternalStorageDirectory() + "/SDcardTestLog";
+		File file = new File(path);
+		if (!file.exists())
+			file.mkdir();
+		try {
+			logDataWriter = new FileWriter(path + "/" + logFileName + ".txt", true);
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+
+	public void closeWriter() {
+		try {
+			logDataWriter.flush();
+			logDataWriter.close();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+
+	private void setBundleData() {
+		Bundle bundle = this.getIntent().getExtras();
+		logFileName = bundle.getString("logFileName");
+	}
+	
 	@Override
 	public boolean onKeyDown(int keyCode, KeyEvent event) {
 		if (keyCode == KeyEvent.KEYCODE_BACK) {
@@ -210,4 +261,5 @@ public class PhotoActivity extends Activity {
 		}
 		return true;
 	}
+
 }

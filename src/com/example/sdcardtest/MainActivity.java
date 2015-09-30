@@ -40,15 +40,19 @@ public class MainActivity extends Activity {
 				part = 1;
 			if (v == part2Button)
 				part = 2;
-			Intent intent = new Intent();
-			intent.setClass(MainActivity.this, TestProcActivity.class);
-			Bundle bundle = new Bundle();
-			bundle.putInt("part", part);
-			intent.putExtras(bundle);
-			startActivity(intent);
-			MainActivity.this.finish();
-
+			
+			changeActivity(part);
 		}
 	};
+	
+	private void changeActivity(int part){
+		Intent intent = new Intent();
+		intent.setClass(MainActivity.this, TestProcActivity.class);
+		Bundle bundle = new Bundle();
+		bundle.putInt("part", part);
+		intent.putExtras(bundle);
+		startActivity(intent);
+		MainActivity.this.finish();
+	}
 
 }
