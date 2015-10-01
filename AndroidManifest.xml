@@ -39,7 +39,7 @@
         <activity
             android:name=".PhotoActivity"
             android:label="@string/title_activity_photo"
-           android:screenOrientation="portrait">
+           >
         </activity>
         <activity
             android:name=".TestProcActivity"
