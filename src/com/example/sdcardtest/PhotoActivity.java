@@ -35,6 +35,7 @@ public class PhotoActivity extends Activity {
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
+		getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 		requestWindowFeature(Window.FEATURE_NO_TITLE);
 		setContentView(R.layout.activity_photo);
 		Toast.makeText(getApplicationContext(), "Play photos", Toast.LENGTH_SHORT).show();
@@ -64,7 +65,7 @@ public class PhotoActivity extends Activity {
 
 					playPhoto();
 				} catch (Exception e) {
-					logData("initialize(): " + e.getCause().toString());
+					logData("initialize(): " + e);
 					Toast.makeText(PhotoActivity.this, e.getCause().toString(), Toast.LENGTH_SHORT).show();
 					e.printStackTrace();
 				}
@@ -80,18 +81,27 @@ public class PhotoActivity extends Activity {
 
 		int sampleSize = 2;
 		for (int i = 0; i < fileList.size(); i++) {
-			bmp = BitmapFactory.decodeFile(SdCardPath + fileList.get(i));
-			if (bmp == null) {
-				toast(fileList.get(i) + " can't read");
-				logData(fileList.get(i) + " can't read");
-				failFile++;
-				continue;
-			}
-
-			out = decodeSampledBitmapFromResource(SdCardPath + fileList.get(i), sampleSize);
 			try {
+		
+				/*bmp = BitmapFactory.decodeFile(SdCardPath + fileList.get(i));
+				if (bmp == null) {
+					toast(fileList.get(i) + " can't read");
+					logData(fileList.get(i) + " can't read");
+					failFile++;
+					continue;
+				}*/
+	
+				out = decodeSampledBitmapFromResource(SdCardPath + fileList.get(i), sampleSize);
+				if(out==null){
+					toast(fileList.get(i) + " can't read");
+					logData(fileList.get(i) + " can't read");
+					failFile++;
+					continue;
+				}
+					
 				Thread.sleep(intervalTime);
-			} catch (InterruptedException e) {
+			} catch (Exception e) {
+				logData("playPhoto(): " + e);
 				e.printStackTrace();
 			}
 			sendtoUI(out);
@@ -144,9 +154,9 @@ public class PhotoActivity extends Activity {
 
 		final BitmapFactory.Options options = new BitmapFactory.Options();
 		options.inJustDecodeBounds = true;
-
 		BitmapFactory.decodeFile(filePath, options);
-
+		
+		
 		int rotation = getExifInfo(filePath);
 
 		options.inJustDecodeBounds = false;
@@ -156,6 +166,8 @@ public class PhotoActivity extends Activity {
 	}
 
 	public Bitmap RotateBitmap(Bitmap source, float angle) {
+		if(source==null)
+			return null;
 		Matrix matrix = new Matrix();
 		matrix.postRotate(angle);
 		source = Bitmap.createBitmap(source, 0, 0, source.getWidth(), source.getHeight(), matrix, true);
@@ -177,8 +189,9 @@ public class PhotoActivity extends Activity {
 			default:
 				return 0;
 			}
-		} catch (IOException e) {
+		} catch (Exception e) {
 			// TODO Auto-generated catch block
+			logData("getExifInfo(): " + e);
 			e.printStackTrace();
 		}
 		return 0;

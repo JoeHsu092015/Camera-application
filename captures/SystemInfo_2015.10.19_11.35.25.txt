@@ -1,0 +1,164 @@
+CURRENT STATS:
+System memory usage:
+  SOn /Norm: 1 samples:
+    Cached: 1.1GB min, 1.1GB avg, 1.1GB max
+    Free: 406MB min, 406MB avg, 406MB max
+    ZRam: 0.00 min, 0.00 avg, 0.00 max
+    Kernel: 350MB min, 350MB avg, 350MB max
+    Native: 202MB min, 202MB avg, 202MB max
+
+Per-Package Stats:
+  * com.example.sdcardtest / u0a150 / v1:
+      * com.example.sdcardtest / u0a150 / v1:
+               TOTAL: 60% (34MB-54MB-72MB/30MB-48MB-66MB over 34)
+                 Top: 60% (34MB-54MB-72MB/30MB-48MB-66MB over 34)
+
+Summary:
+  * com.example.sdcardtest / u0a150 / v1:
+           TOTAL: 60% (34MB-54MB-72MB/30MB-48MB-66MB over 34)
+             Top: 60% (34MB-54MB-72MB/30MB-48MB-66MB over 34)
+
+Run time Stats:
+  SOn /Norm: +1h55m9s411ms (running)
+      TOTAL: +1h55m9s411ms
+
+Memory usage:
+  Kernel : 350MB (8 samples)
+  Native : 202MB (8 samples)
+  Persist: 250MB (40 samples)
+  Top    : 66MB (79 samples)
+  ImpFg  : 44MB (125 samples)
+  ImpBg  : 62MB (64 samples)
+  Service: 133MB (226 samples)
+  Receivr: 74KB (206 samples)
+  Home   : 30MB (4 samples)
+  CchEmty: 135MB (160 samples)
+  Cached : 1.1GB (8 samples)
+  Free   : 406MB (8 samples)
+  TOTAL  : 2.7GB
+  ServRst: 2.4KB (40 samples)
+
+          Start time: 2015-10-19 09:39:17
+  Total elapsed time: +1h55m27s911ms (partial) libart.so
+
+AGGREGATED OVER LAST 24 HOURS:
+System memory usage:
+  SOff/Norm: 5 samples:
+    Cached: 200MB min, 780MB avg, 1.1GB max
+    Free: 126MB min, 460MB avg, 1.1GB max
+    ZRam: 0.00 min, 0.00 avg, 0.00 max
+    Kernel: 360MB min, 380MB avg, 425MB max
+    Native: 163MB min, 194MB avg, 203MB max
+  SOn /Norm: 5 samples:
+    Cached: 311MB min, 829MB avg, 1.1GB max
+    Free: 161MB min, 469MB avg, 728MB max
+    ZRam: 0.00 min, 0.00 avg, 0.00 max
+    Kernel: 349MB min, 358MB avg, 365MB max
+    Native: 155MB min, 203MB avg, 243MB max
+       Mod : 2 samples:
+    Cached: 375MB min, 616MB avg, 857MB max
+    Free: 104MB min, 225MB avg, 346MB max
+    ZRam: 0.00 min, 0.00 avg, 0.00 max
+    Kernel: 312MB min, 319MB avg, 327MB max
+    Native: 199MB min, 583MB avg, 0.94GB max
+       Low : 1 samples:
+    Cached: 772MB min, 772MB avg, 772MB max
+    Free: 628MB min, 628MB avg, 628MB max
+    ZRam: 0.00 min, 0.00 avg, 0.00 max
+    Kernel: 317MB min, 317MB avg, 317MB max
+    Native: 263MB min, 263MB avg, 263MB max
+
+Per-Package Stats:
+  * com.example.sdcardtest / u0a149 / v1:
+      * com.example.sdcardtest / u0a149 / v1:
+               TOTAL: 35% (43MB-58MB-65MB/38MB-52MB-59MB over 83)
+                 Top: 35% (43MB-58MB-65MB/38MB-52MB-59MB over 83)
+          (Last Act): 0.06%
+            (Cached): 1.3% (34MB-34MB-34MB/28MB-28MB-28MB over 1)
+  * com.example.sdcardtest / u0a150 / v1:
+      * com.example.sdcardtest / u0a150 / v1:
+               TOTAL: 22% (34MB-55MB-72MB/30MB-49MB-66MB over 57)
+                 Top: 22% (34MB-55MB-72MB/30MB-49MB-66MB over 57)
+
+Summary:
+  * com.example.sdcardtest / u0a149 / v1:
+           TOTAL: 35% (43MB-58MB-65MB/38MB-52MB-59MB over 83)
+             Top: 35% (43MB-58MB-65MB/38MB-52MB-59MB over 83)
+      (Last Act): 0.06%
+        (Cached): 1.3% (34MB-34MB-34MB/28MB-28MB-28MB over 1)
+  * com.example.sdcardtest / u0a150 / v1:
+           TOTAL: 22% (34MB-55MB-72MB/30MB-49MB-66MB over 57)
+             Top: 22% (34MB-55MB-72MB/30MB-49MB-66MB over 57)
+
+Run time Stats:
+  SOff/Norm: +35m51s135ms
+  SOn /Norm: +7h52m12s171ms
+       Mod : +1m19s607ms
+       Low : +2m18s935ms
+       Crit: +2m12s792ms
+      TOTAL: +8h33m54s640ms
+
+Memory usage:
+  Kernel : 359MB (88 samples)
+  Native : 203MB (88 samples)
+  Persist: 230MB (232 samples)
+  Top    : 67MB (711 samples)
+  ImpFg  : 39MB (1628 samples)
+  ImpBg  : 65MB (826 samples)
+  Service: 105MB (2448 samples)
+  Receivr: 126KB (2255 samples)
+  Home   : 40MB (78 samples)
+  LastAct: 6.0MB (485 samples)
+  CchAct : 8.2MB (266 samples)
+  CchCAct: 3.1MB (16 samples)
+  CchEmty: 139MB (1560 samples)
+  Cached : 825MB (88 samples)
+  Free   : 468MB (88 samples)
+  TOTAL  : 2.5GB
+  ServRst: 13KB (991 samples)
+
+          Start time: 2015-10-13 09:29:07
+  Total elapsed time: +1d0h25m39s459ms (partial) libart.so
+
+AGGREGATED OVER LAST 3 HOURS:
+System memory usage:
+  SOn /Norm: 1 samples:
+    Cached: 1.1GB min, 1.1GB avg, 1.1GB max
+    Free: 406MB min, 406MB avg, 406MB max
+    ZRam: 0.00 min, 0.00 avg, 0.00 max
+    Kernel: 350MB min, 350MB avg, 350MB max
+    Native: 202MB min, 202MB avg, 202MB max
+
+Per-Package Stats:
+  * com.example.sdcardtest / u0a150 / v1:
+      * com.example.sdcardtest / u0a150 / v1:
+               TOTAL: 60% (34MB-54MB-72MB/30MB-48MB-66MB over 34)
+                 Top: 60% (34MB-54MB-72MB/30MB-48MB-66MB over 34)
+
+Summary:
+  * com.example.sdcardtest / u0a150 / v1:
+           TOTAL: 60% (34MB-54MB-72MB/30MB-48MB-66MB over 34)
+             Top: 60% (34MB-54MB-72MB/30MB-48MB-66MB over 34)
+
+Run time Stats:
+  SOn /Norm: +1h55m9s599ms
+      TOTAL: +1h55m9s599ms
+
+Memory usage:
+  Kernel : 350MB (8 samples)
+  Native : 202MB (8 samples)
+  Persist: 250MB (40 samples)
+  Top    : 66MB (79 samples)
+  ImpFg  : 44MB (125 samples)
+  ImpBg  : 62MB (64 samples)
+  Service: 133MB (226 samples)
+  Receivr: 74KB (206 samples)
+  Home   : 30MB (4 samples)
+  CchEmty: 135MB (160 samples)
+  Cached : 1.1GB (8 samples)
+  Free   : 406MB (8 samples)
+  TOTAL  : 2.7GB
+  ServRst: 2.4KB (40 samples)
+
+          Start time: 2015-10-19 09:39:17
+  Total elapsed time: +1h55m28s47ms (partial) libart.so

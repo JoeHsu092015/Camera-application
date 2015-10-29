@@ -1,0 +1,37 @@
+Applications Memory Usage (kB):
+Uptime: 6881478 Realtime: 6881478
+
+** MEMINFO in pid 17517 [com.example.sdcardtest] **
+                   Pss  Private  Private  Swapped     Heap     Heap     Heap
+                 Total    Dirty    Clean    Dirty     Size    Alloc     Free
+                ------   ------   ------   ------   ------   ------   ------
+  Native Heap     7937     7024        0        0    28316    27136     1180
+  Dalvik Heap     2162     2072        0        0     4581     1634     2947
+ Dalvik Other      432      432        0        0                           
+        Stack      216      216        0        0                           
+      Gfx dev     1814      416        0        0                           
+    Other dev        6        0        4        0                           
+     .so mmap     2443      148      368        0                           
+    .apk mmap       27        0        0        0                           
+    .ttf mmap       35        0        4        0                           
+    .dex mmap      400        0      396        0                           
+    .oat mmap     1423        0      396        0                           
+    .art mmap     1126      624      204        0                           
+   Other mmap       16        8        0        0                           
+   EGL mtrack    38312    38312        0        0                           
+      Unknown      159      156        0        0                           
+        TOTAL    56508    49408     1372        0    32897    28770     4127
+ 
+ Objects
+               Views:       13         ViewRootImpl:        1
+         AppContexts:        3           Activities:        1
+              Assets:        3        AssetManagers:        3
+       Local Binders:       10        Proxy Binders:       16
+       Parcel memory:        4         Parcel count:       17
+    Death Recipients:        0      OpenSSL Sockets:        0
+ 
+ SQL
+         MEMORY_USED:        0
+  PAGECACHE_OVERFLOW:        0          MALLOC_SIZE:        0
+ 
+Uptime: 6882692 Realtime now=6882692
