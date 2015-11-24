@@ -12,7 +12,6 @@ import java.util.List;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import android.app.Activity;
-import android.app.ActivityManager;
 import android.app.AlertDialog;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -23,14 +22,11 @@ import android.graphics.PixelFormat;
 import android.hardware.Camera;
 import android.hardware.Camera.Parameters;
 import android.hardware.Camera.PictureCallback;
-import android.hardware.Camera.Size;
 import android.media.CamcorderProfile;
 import android.media.ExifInterface;
 import android.media.MediaRecorder;
-import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Environment;
-import android.os.Handler;
 import android.os.StatFs;
 import android.util.Log;
 import android.view.KeyEvent;
@@ -55,30 +51,35 @@ public class TestProcActivity extends Activity implements SurfaceHolder.Callback
 	private Button startButton;
 	private Button playButton;
 	private TextView textView;
-	private ProgressBar progressBar;
+	private ProgressBar progressBar; // Test procedure progress bar
 	private Camera camera;
+	// private CameraDevice camera;
 	private Configuration phoneConfigure;
-	private FileWriter logDataWriter = null;
-	private static Semaphore mutex = new Semaphore(0);
-	private boolean sdcardExisted = true;
-	private boolean startProc = false;
-	private boolean enoughSpace = true;
-	private boolean handlePic = true;
-	private static String SDcardPath;
-	private final String tag = "VideoTest";
-	private int VIDEO_LENGTH = 600000;// ms
-	private int PIC_NUM = 100;
-	//private int totalPicCount = 1;
-	//private char prefix = 'A';
-	private static int progressCount = 1;
-	private int videoFileIndex;
-	private int photoFileIndex;
-	private int procPart = 0;
-	private String failVideoFileName = null;
-	private String logFileName;
-	Handler handler=new Handler();
-	//private boolean takeFlag = true;
-	//private int testCount = 1;
+	private FileWriter logDataWriter = null; // Test procedure log writer
+	private final int VIDEO_TYPE = 0;
+	private final int PHOTO_TYPE = 1;
+	/*
+	* when takePicture API processing,mutex will be locked until
+	* takePicture API process finish
+	 */
+	private static Semaphore mutex = new Semaphore(0); 
+	private boolean sdcardExisted = true; // check sdcard exist flag
+	private boolean startProc = false; // start Test procedure flag
+	private boolean enoughSpace = true; // check sdcard capacity flag
+	private boolean handlePic = true; // taking photo flag
+	private static String SDcardPath; // SDcard's system path
+	private final String tag = "VideoTest"; // debug tag
+	private int VIDEO_LENGTH = 600000;// ms // record video length
+	private int PIC_NUM = 100; // take photo number
+	private static int progressCount = 1; // show current process on progressbar
+	private int videoFileIndex; // video file name format:("video"+videoFileIndex).mp4/3gp
+	private int photoFileIndex; // photo file name format:("photo"+photoFileIndex).jpg
+	private int procPart = 0; // test Procedure Part I/II
+	private CharSequence[] userChoiceVideoResolutionArray; // user selected test's video resolution
+	private CharSequence[] userChoicePhotoResolutionArray; // user selected test's photo resolution
+	private String failVideoFileName = null; // store failure video File name when recording video failure happened.
+											//The failure reason is sdcard capacity not enough.
+	private String logFileName; // Test procedure log file name
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
@@ -87,6 +88,9 @@ public class TestProcActivity extends Activity implements SurfaceHolder.Callback
 		initialize();
 	}
 
+	/*
+	 * Test procedure widget setting
+	 */
 	private void initialize() {
 		getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 		getWindow().setFormat(PixelFormat.TRANSLUCENT);
@@ -136,7 +140,7 @@ public class TestProcActivity extends Activity implements SurfaceHolder.Callback
 		camera.release();
 		super.onPause();
 	}
-
+	
 	@Override
 	public boolean onKeyDown(int keyCode, KeyEvent event) {
 
@@ -159,6 +163,9 @@ public class TestProcActivity extends Activity implements SurfaceHolder.Callback
 		return true;
 	}
 
+	/*
+	 * "Start" button listener,start test procedure
+	 */
 	private View.OnClickListener TestProcedureListener = new View.OnClickListener() {
 		@Override
 		public void onClick(View v) {
@@ -180,7 +187,7 @@ public class TestProcActivity extends Activity implements SurfaceHolder.Callback
 								closeLogFile();
 								changeActivity();
 							} catch (Exception e) {
-								logData("TestProcedureListener: "+e);
+								logData("TestProcedureListener: " + e);
 								e.printStackTrace();
 							}
 						}
@@ -194,26 +201,27 @@ public class TestProcActivity extends Activity implements SurfaceHolder.Callback
 		}
 	};
 
+	/*
+	 * test process items order
+	 */
 	private void testProc() {
 		logData("Start test part " + procPart);
-		setPhoneRotation();
-		setProgressBar();
-		setFileIndex();
-		RecordVideo();
+		setPhoneRotation(); // lock phone's screen orientation
+		setProgressBar(); 	// set percentage of Test Procedure process
+		setFileIndex(); 	// set video / photo file name
+		recordVideo();
 		takePicture();
-		// toast("Progress " + progressCount);
-		logData("Test part "+procPart+" finish");
+		logData("Test part " + procPart + " finish");
 		finishProc();
-
 	}
 
-	public void RecordVideo() {
+	public void recordVideo() {
 		logData("Record Video");
 		String fileName = null;
 		int tmpVideoLength = VIDEO_LENGTH;
 		long startTime, durationTime;
 		int videoWidth, videoHeight;
-		List<Integer> videoSizeList = getPhoneSupportedSizes(0);
+		List<Integer> videoSizeList = getPhoneSupportedSizes(VIDEO_TYPE);
 		String timeString = null;
 		for (int i = 0; i < videoSizeList.size(); i += 2) {
 			if (!hasFreeVideoSize()) {
@@ -225,7 +233,22 @@ public class TestProcActivity extends Activity implements SurfaceHolder.Callback
 
 			videoWidth = videoSizeList.get(i);
 			videoHeight = videoSizeList.get(i + 1);
+
+			// If width is smaller than height , mediarecorder would be failed
+			if (videoWidth < videoHeight) { // exchange width and height value
+				videoWidth  = videoWidth ^ videoHeight;
+				videoHeight = videoWidth ^ videoHeight;
+				videoWidth  = videoWidth ^ videoHeight;
+			}
+
 			fileName = startRecord(videoWidth, videoHeight);
+			if (fileName == null) {
+				// resetCamera();
+				logData("[" + videoWidth + "x" + videoHeight + "] record time = 00 : 00");
+				sendtoProgress(progressCount++);
+				continue;
+			}
+
 			Log.e(tag, "RECORD " + videoWidth + "x" + videoHeight);
 
 			startTime = System.currentTimeMillis();
@@ -258,9 +281,7 @@ public class TestProcActivity extends Activity implements SurfaceHolder.Callback
 			VIDEO_LENGTH = tmpVideoLength;
 			sendtoProgress(progressCount++);
 			stopRecord();
-
 		}
-
 		toast("Record video finish");
 	}
 
@@ -287,16 +308,25 @@ public class TestProcActivity extends Activity implements SurfaceHolder.Callback
 			if (phoneConfigure.orientation == Configuration.ORIENTATION_PORTRAIT)
 				mediarecorder.setOrientationHint(90);
 			fileName = createVideoFilePath(fileExtention);
-			mediarecorder.setOutputFile(SDcardPath + "/video/" + fileName);
+			mediarecorder.setOutputFile(SDcardPath + "video/" + fileName);
 			mediarecorder.setPreviewDisplay(surfaceHolder.getSurface());
 			mediarecorder.prepare();
 			mediarecorder.start();
-		} catch (Exception e) {
-			mediarecorder.stop();
-			mediarecorder.release();
+		} catch (RuntimeException e) {
 			e.printStackTrace();
 			logData("startRecord(): " + e);
-			//toast(e.getStackTrace().toString());
+			toast("Record fail: " + e);
+			deleteFailFile(SDcardPath + "video/" + fileName);
+			mediarecorder.reset();
+			mediarecorder.release();
+			mediarecorder = null;
+			reconnectCamera();
+			return null;
+		} catch (Exception e) {
+			e.printStackTrace();
+			logData("startRecord(): " + e);
+			toast("Record fail: " + e);
+			return null;
 		}
 
 		return fileName;
@@ -312,8 +342,6 @@ public class TestProcActivity extends Activity implements SurfaceHolder.Callback
 		} catch (Exception e) {
 			e.printStackTrace();
 			logData("stopRecord(): " + e);
-			
-			//toast(e.getStackTrace().toString());
 		}
 
 	}
@@ -321,9 +349,9 @@ public class TestProcActivity extends Activity implements SurfaceHolder.Callback
 	public void takePicture() {
 		logData("Take Picture");
 		int picWidth, picHeight;
-		List<Integer> picSizeList = getPhoneSupportedSizes(1);
+		List<Integer> picSizeList = getPhoneSupportedSizes(PHOTO_TYPE);
 		for (int i = 0; i < picSizeList.size(); i += 2) {
-			int tmp = progressCount;
+			int tmp = progressCount;   //progressCount would be changed after calling camera.takePicture API in some case 
 			picWidth = picSizeList.get(i);
 			picHeight = picSizeList.get(i + 1);
 			takePictureProc(picWidth, picHeight);
@@ -340,12 +368,12 @@ public class TestProcActivity extends Activity implements SurfaceHolder.Callback
 	}
 
 	public void takePictureProc(int picWidth, int picHeight) {
-		
+
 		Camera.Parameters params = camera.getParameters();
 		try {
 			params.setPictureFormat(ImageFormat.JPEG);
 			params.setPictureSize(picWidth, picHeight);
-			//params.setRotation(90);
+			// params.setRotation(90);
 			camera.setParameters(params);
 		} catch (Exception e) {
 			logData("takePictureProc() Parameters: " + e);
@@ -355,49 +383,42 @@ public class TestProcActivity extends Activity implements SurfaceHolder.Callback
 		sendtoCurrent(picWidth + "x" + picHeight + ": 0");
 		int takeCount = 1;
 		enoughSpace = true;
-		handlePic = false;///111111111111111111
+		handlePic = false;
 		int waitAcquireCount = 0;
+		int waitInterval = 40;
 		while (takeCount <= PIC_NUM) {
 			waitAcquireCount = 0;
-			//memData();
 			try {
 				handlePic = true;
 				camera.takePicture(null, null, jpeg);
-				
-				//mutex.tryAcquire(30L,  TimeUnit.SECONDS);
-				//mutex.acquire();
-				
-				while(!mutex.tryAcquire()){
+
+				// mutex.tryAcquire(30L, TimeUnit.SECONDS);
+				// mutex.acquire();
+
+				while (!mutex.tryAcquire()) {
 					Thread.sleep(500);
 					waitAcquireCount++;
-					if(waitAcquireCount>60){
+					if (waitAcquireCount > waitInterval) {
 						mutex.release();
 						logData("[" + picWidth + "x" + picHeight + "] take " + takeCount + " timeout");
-						//Log.e(tag, "[" + picWidth + "x" + picHeight + "] take " + takeCount + " timeout");
-						
+						// Log.e(tag, "[" + picWidth + "x" + picHeight + "] take
+						// " + takeCount + " timeout");
 						resetCamera();
 					}
 				}
-				
-				if(waitAcquireCount>60)
+
+				if (waitAcquireCount > waitInterval)
 					continue;
-					
+
 				camera.startPreview();
 				/*handler.postDelayed(timerCount, 0);
-				
-				mutex.acquire();
-				handler.removeCallbacks(timerCount);
-				if(!takeFlag){
-					Log.e(tag, "ss");
-					camera.release();
-					camera = Camera.open();
-					takeFlag = true;
-					continue;
-				}*/
-					
+				  mutex.acquire(); handler.removeCallbacks(timerCount);
+				  if(!takeFlag){ Log.e(tag, "ss"); camera.release(); camera =
+				  Camera.open(); takeFlag = true; continue; }*/
+
 				// handlePic = true;
 				if (!enoughSpace) {
-					
+
 					handlePic = false;
 					logData("[" + picWidth + "x" + picHeight + "] take " + takeCount + " suspend: No enough space");
 					// mutex.release();
@@ -405,64 +426,24 @@ public class TestProcActivity extends Activity implements SurfaceHolder.Callback
 				}
 				// camera.takePicture(null, null, jpeg);
 				sendtoCurrent(picWidth + "x" + picHeight + ": " + (takeCount++));
-				//Log.e(tag, picWidth + "x" + picHeight + ": " + (takeCount-1));
+				// Log.e(tag, picWidth + "x" + picHeight + ": " +
+				// (takeCount-1));
 			} catch (Exception e) {
 				logData("takePictureProc() takePicture: " + e);
 				e.printStackTrace();
-			} 
+			}
 		}
 		if (enoughSpace)
 			logData("[" + picWidth + "x" + picHeight + "] take " + PIC_NUM);
-		
-			
+
 		while (handlePic)
 			;// wait final takePicture procedure finish
-
 	}
-	
-	private void resetCamera(){
-		camera.release();
-		camera = Camera.open();
-		try {
-			
-			if (phoneConfigure.orientation == Configuration.ORIENTATION_PORTRAIT)
-				camera.setDisplayOrientation(90);
-			Camera.Parameters parameters = camera.getParameters();
-			parameters.setFocusMode(Parameters.FOCUS_MODE_CONTINUOUS_VIDEO);
-			camera.setParameters(parameters);
-			camera.setPreviewDisplay(surfaceHolder);
-			camera.startPreview();
-		} catch (Exception e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-			logData("resetCamera(): " + e);
-		}
-		
-	}
-	
-	/*private Runnable timerCount = new Runnable()  
-    {  
-        @Override  
-        public void run()  
-        {  
-        	try {
-				Thread.sleep(30000);
-			} catch (InterruptedException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-        	if(!mutex.tryAcquire()){
-        		takeFlag = false;
-        		mutex.release();
-        	}
-        		
-        }  
-    };  */
 
 	private PictureCallback jpeg = new PictureCallback() {
 		public void onPictureTaken(byte[] data, Camera camera) {
-			//Log.e(tag,"onPictureTaken create"+testCount);
-			//handlePic = true;//111111111111111111
+			// Log.e(tag,"onPictureTaken create"+testCount);
+			// handlePic = true;//111111111111111111
 			File file = null;
 			FileOutputStream outStream = null;
 			try {
@@ -470,20 +451,20 @@ public class TestProcActivity extends Activity implements SurfaceHolder.Callback
 				file = createPictureFilePath();
 				outStream = new FileOutputStream(file);
 				outStream.write(data);
-				//logData("onPictureTaken(): write");
+				// logData("onPictureTaken(): write");
 				if (phoneConfigure.orientation == Configuration.ORIENTATION_PORTRAIT) {
 					ExifInterface exifi = new ExifInterface(file.getAbsolutePath());
 					exifi.setAttribute(ExifInterface.TAG_ORIENTATION,
 							String.valueOf(ExifInterface.ORIENTATION_ROTATE_90));
 					exifi.saveAttributes();
-					//logData("onPictureTaken(): saveAttributes");
+					// logData("onPictureTaken(): saveAttributes");
 				}
 
 				outStream.close();
-				//Log.e(tag,"onPictureTaken finish"+(testCount++));
+				// Log.e(tag,"onPictureTaken finish"+(testCount++));
 
-				//camera.startPreview();
-				//logData("onPictureTaken(): startPreview()");
+				// camera.startPreview();
+				// logData("onPictureTaken(): startPreview()");
 			} catch (FileNotFoundException e) {
 				Log.e(tag, "TException:" + e.getCause().toString());
 				if (e.getCause().toString().indexOf("ENOENT") != -1) {
@@ -498,7 +479,7 @@ public class TestProcActivity extends Activity implements SurfaceHolder.Callback
 					file.delete();
 				}
 				e.printStackTrace();
-			}  catch (Exception e) {
+			} catch (Exception e) {
 				logData("onPictureTaken(): " + e);
 				e.printStackTrace();
 			} finally {
@@ -548,6 +529,60 @@ public class TestProcActivity extends Activity implements SurfaceHolder.Callback
 			e.printStackTrace();
 		}
 	}
+	
+	private void reconnectCamera() {
+		try {
+			camera.reconnect();
+			setPreview();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			logData("reconnectCamera(): " + e);
+			e.printStackTrace();
+		}
+	}
+
+	private void resetCamera() {
+		try {
+			camera.release();
+			camera = Camera.open();
+			setPreview();
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			logData("resetCamera(): " + e);
+			e.printStackTrace();
+		}
+	}
+
+	private void setPreview() {
+		try {
+			if (phoneConfigure.orientation == Configuration.ORIENTATION_PORTRAIT)
+				camera.setDisplayOrientation(90);
+			Camera.Parameters parameters = camera.getParameters();
+			parameters.setFocusMode(Parameters.FOCUS_MODE_CONTINUOUS_VIDEO);
+			camera.setParameters(parameters);
+			camera.setPreviewDisplay(surfaceHolder);
+			camera.startPreview();
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			logData("setPreview(): " + e);
+			e.printStackTrace();
+
+		}
+	}
+
+	private void deleteFailFile(String selectedFilePath) {
+		try {
+			File file = new File(selectedFilePath);
+			boolean deleted = file.delete();
+			if (deleted)
+				logData("deleteFailFile:[success] " + selectedFilePath);
+			else
+				logData("deleteFailFile:[fail] " + selectedFilePath);
+		} catch (Exception e) {
+			e.printStackTrace();
+			logData("deleteFailFile(): " + e);
+		}
+	}
 
 	public void initLogFile() {
 		String path = Environment.getExternalStorageDirectory() + "/SDcardTestLog";
@@ -568,7 +603,7 @@ public class TestProcActivity extends Activity implements SurfaceHolder.Callback
 		}
 	}
 
-	private void setFileIndex(){
+	private void setFileIndex() {
 		File appDir = new File(SDcardPath, "video");
 		if (!appDir.exists())
 			appDir.mkdir();
@@ -577,12 +612,12 @@ public class TestProcActivity extends Activity implements SurfaceHolder.Callback
 			appDir2.mkdir();
 		String[] s = appDir.list();
 		String[] s2 = appDir2.list();
-		
+
 		videoFileIndex = s.length;
 		photoFileIndex = s2.length;
-		
+
 	}
-	
+
 	public String createVideoFilePath(String fileExtention) {
 
 		File appDir = new File(SDcardPath, "video");
@@ -599,42 +634,75 @@ public class TestProcActivity extends Activity implements SurfaceHolder.Callback
 		File appDir = new File(SDcardPath, "picture");
 		photoFileIndex++;
 		String name = "Photo" + String.valueOf(photoFileIndex) + ".jpg";
-		//totalPicCount++;
+		// totalPicCount++;
 		return new File(appDir, name);
 	}
 
-	public List<Integer> getPhoneSupportedSizes(int type) {
-		List<Size> a;
-		List<Integer> phoneSupportedList = new ArrayList<Integer>();
-		try {
-			if (type == 0) {
-				double size1 = 16.0 / 9.0;
-				double size2 = 4.0 / 3.0;
+	/*public List<Integer> getPhoneSupportedSizes(int type) { 
+		if((type !=VIDEO_TYPE)&&(type != PHOTO_TYPE)){ 
+			toast("Error type : "+type); 
+			return null; 
+		} 
+		List<Size> sizeList; 
+		List<Integer> phoneSupportedList = new ArrayList<Integer>(); 
+		try { 
+			if (type == VIDEO_TYPE) { 
+				double size1 = 16.0 / 9.0; 
+				double size2 = 4.0 / 3.0; 
 				double size3 = 11.0 / 9.0;
-				a = camera.getParameters().getSupportedVideoSizes();
-				for (int i = 0; i < a.size(); i++) {
-					double tmp = (double) a.get(i).width / (double) a.get(i).height;
+	  
+				sizeList = camera.getParameters().getSupportedVideoSizes(); 
+				for (int i = 0; i < sizeList.size(); i++) { 
+					Log.e(tag, "video: " +sizeList.get(i).width+"x"+sizeList.get(i).height); 
+					double tmp = (double) a.get(i).width / (double) a.get(i).height; //
 					if ((tmp == size1) || (tmp == size2) || (tmp == size3)) {
-						phoneSupportedList.add(a.get(i).width);
-						phoneSupportedList.add(a.get(i).height);
-					}
-				}
-			} else if (type == 1) {
-				a = camera.getParameters().getSupportedPictureSizes();
-				for (int i = 0; i < a.size(); i++) {
-					phoneSupportedList.add(a.get(i).width);
-					phoneSupportedList.add(a.get(i).height);
-					// Log.e(tag, a.get(i).width+"x"+a.get(i).height);
-
-				}
-			} else {
-				toast("Error type");
+						phoneSupportedList.add(sizeList.get(i).width);
+						phoneSupportedList.add(sizeList.get(i).height); 
+					 
+					} 
+			  	} 
+			} else if (type == PHOTO_TYPE) { 
+				sizeList = camera.getParameters().getSupportedPictureSizes();
+				for (int i = 0; i < sizeList.size(); i++) { 
+					phoneSupportedList.add(sizeList.get(i).width);
+					phoneSupportedList.add(sizeList.get(i).height); Log.e(tag, "photo: "+sizeList.get(i).width+"x"+sizeList.get(i).height);
+				} 
+			} else { 
+				toast("Error type"); 
 				return null;
-			}
+			} 
 		} catch (Exception e) {
-			logData("getPhoneSupportedSizes(): " + e);
-			e.printStackTrace();
+				logData("getPhoneSupportedSizes(): " + e); e.printStackTrace();
+		} 
+		return phoneSupportedList; 
+	}*/
 
+	public List<Integer> getPhoneSupportedSizes(int type) {
+		if ((type != VIDEO_TYPE) && (type != PHOTO_TYPE)) {
+			toast("Error type : " + type);
+			return null;
+		}
+		List<Integer> phoneSupportedList = new ArrayList<Integer>();
+		String[] strTmp = null;
+		if (type == VIDEO_TYPE) {
+			for (int i = 0; i < userChoiceVideoResolutionArray.length; i++) {
+				if (userChoiceVideoResolutionArray[i] == null)
+					continue;
+				strTmp = userChoiceVideoResolutionArray[i].toString().split("x");
+				phoneSupportedList.add(Integer.parseInt(strTmp[0]));
+				phoneSupportedList.add(Integer.parseInt(strTmp[1]));
+			}
+		} else if (type == PHOTO_TYPE) {
+			for (int i = 0; i < userChoicePhotoResolutionArray.length; i++) {
+				if (userChoicePhotoResolutionArray[i] == null)
+					continue;
+				strTmp = userChoicePhotoResolutionArray[i].toString().split("x");
+				phoneSupportedList.add(Integer.parseInt(strTmp[0]));
+				phoneSupportedList.add(Integer.parseInt(strTmp[1]));
+			}
+		} else {
+			toast("Error type");
+			return null;
 		}
 		return phoneSupportedList;
 	}
@@ -693,13 +761,13 @@ public class TestProcActivity extends Activity implements SurfaceHolder.Callback
 	public int getDirectoryFileList() {
 
 		File f = new File(SDcardPath + "/video");
-		
+
 		if (f.isDirectory()) {
 			Log.e(tag, "filename : " + f.getName());
 			String[] s = f.list();
 			return s.length;
 		}
-		
+
 		return 0;
 	}
 
@@ -709,12 +777,13 @@ public class TestProcActivity extends Activity implements SurfaceHolder.Callback
 			public void run() {
 				textView.setVisibility(View.VISIBLE);
 				progressBar.setVisibility(View.VISIBLE);
-				List<Integer> videoTotalNum = getPhoneSupportedSizes(0);
-				List<Integer> pictureTotalNum = getPhoneSupportedSizes(1);
-				while (videoTotalNum.size() == 0 || pictureTotalNum.size() == 0) {
-					videoTotalNum = getPhoneSupportedSizes(0);
-					pictureTotalNum = getPhoneSupportedSizes(1);
-				}
+				List<Integer> videoTotalNum = getPhoneSupportedSizes(VIDEO_TYPE);
+				List<Integer> pictureTotalNum = getPhoneSupportedSizes(PHOTO_TYPE);
+				/*
+				 * while (videoTotalNum.size() == 0 || pictureTotalNum.size() ==
+				 * 0) { videoTotalNum = getPhoneSupportedSizes(0);
+				 * pictureTotalNum = getPhoneSupportedSizes(1); }
+				 */
 
 				progressBar.setMax(videoTotalNum.size() / 2 + pictureTotalNum.size() / 2);
 				progressBar.setProgress(0);
@@ -743,14 +812,12 @@ public class TestProcActivity extends Activity implements SurfaceHolder.Callback
 		} else {
 			sendtoCurrent("finish");
 		}
-		//prefix++;
-		//totalPicCount = 1;
 		progressCount = 1;
-		
+
 		startProc = false;
 	}
-	
-	private void closeLogFile(){
+
+	private void closeLogFile() {
 		try {
 			logDataWriter.flush();
 			logDataWriter.close();
@@ -764,13 +831,15 @@ public class TestProcActivity extends Activity implements SurfaceHolder.Callback
 	private void setBundleData() {
 		Bundle bundle = this.getIntent().getExtras();
 		procPart = bundle.getInt("part");
+		userChoiceVideoResolutionArray = bundle.getCharSequenceArray("videoSizeArray");
+		userChoicePhotoResolutionArray = bundle.getCharSequenceArray("photoSizeArray");
 	}
 
 	private void changeActivity() {
 		Intent intent = new Intent();
 		intent.setClass(TestProcActivity.this, PlayActivity.class);
 		Bundle bundle = new Bundle();
-		bundle.putString("failVideoFileName",failVideoFileName);
+		bundle.putString("failVideoFileName", failVideoFileName);
 		bundle.putString("logFileName", logFileName);
 		intent.putExtras(bundle);
 		startActivity(intent);
@@ -796,26 +865,3 @@ public class TestProcActivity extends Activity implements SurfaceHolder.Callback
 		}
 	};
 }
-
-/*class GoodTask extends AsyncTask<Integer, Integer, String> {
-    // <肚把计, 矪瞶い穝ざ把计, 矪瞶肚把计>
-    int nowCount;
-    @Override
-    protected String doInBackground(Integer... countTo) {
-        // TODO Auto-generated method stub
-        // 璉春い矪瞶
-        try {
-            for (int i = 0; i < countTo[0]; i++) {
-                Thread.sleep(1000);
-
-                nowCount = i + 1;
-                publishProgress(nowCount);
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return "10";
-    }
-
- 
-}*/
