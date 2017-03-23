@@ -1,0 +1,37 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    tools:context="${relativePackage}.${activityClass}" >
+	<LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_weight="1.5" >
+	    <ListView
+	        android:id="@+id/videoResolutionListView"
+	        android:layout_width="match_parent"
+	        android:layout_height="match_parent"
+	        android:choiceMode="multipleChoice" />
+	 </LinearLayout>
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_weight="8.5" >
+
+        <Button
+            android:id="@+id/video_cancelButton"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_weight="0.25"
+            android:text="Cancel" />
+
+      <Button
+            android:id="@+id/video_okButton"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_weight="0.25"
+            android:text="NEXT" />
+
+    </LinearLayout>
+</LinearLayout>

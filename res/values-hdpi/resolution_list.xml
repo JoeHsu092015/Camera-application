@@ -6,6 +6,6 @@
    </string-array>  
    <string-array name="photo_resolution_items"> 
      <item >1</item>  
-     <item >2</item>  
+     <item >2</item>
    </string-array>  
 </resources>

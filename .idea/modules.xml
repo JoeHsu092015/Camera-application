@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/SDcardTest.iml" filepath="$PROJECT_DIR$/SDcardTest.iml" />
+      <module fileurl="file://$PROJECT_DIR$/Camera-application.iml" filepath="$PROJECT_DIR$/Camera-application.iml" />
     </modules>
   </component>
 </project>

@@ -1,0 +1,65 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    tools:context="${relativePackage}.${activityClass}" >
+	<LinearLayout
+	    android:layout_width="match_parent"
+		android:layout_height="match_parent"
+		android:layout_weight="1.5" >
+	    <RadioGroup
+	        android:id="@+id/radioGroup1"
+	        android:layout_width="match_parent"
+	        android:layout_height="match_parent" >
+	
+	        <RadioButton
+	            android:id="@+id/radio0"
+	            android:layout_width="wrap_content"
+	            android:layout_height="wrap_content"
+	            android:checked="true"
+	            android:text="Sequence test(V1V2..P1P2..)" />
+	
+	        <RadioButton
+	            android:id="@+id/radio1"
+	            android:layout_width="wrap_content"
+	            android:layout_height="wrap_content"
+	            android:text="Photo test" />
+	
+	        <RadioButton
+	            android:id="@+id/radio2"
+	            android:layout_width="wrap_content"
+	            android:layout_height="wrap_content"
+	            android:text="Video test" />
+	        
+	        <RadioButton
+	            android:id="@+id/radio3"
+	            android:layout_width="wrap_content"
+	            android:layout_height="wrap_content"
+	            android:text="Interaction test(P1V1P2V2...)" />
+	
+	      
+	   	 </RadioGroup>
+	 </LinearLayout>
+ 	<LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_weight="8.5" >
+
+ 		<Button
+            android:id="@+id/video_cancelButton"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_weight="0.25"
+            android:text="Cancel" />
+
+      <Button
+            android:id="@+id/video_okButton"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_weight="0.25"
+            android:text="START" />
+
+        </LinearLayout>
+
+</LinearLayout>

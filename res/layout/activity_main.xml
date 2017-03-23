@@ -9,50 +9,34 @@
         android:layout_height="wrap_content"
         android:layout_centerHorizontal="true"
         android:orientation="vertical" >
+        <LinearLayout
+		    android:layout_width="match_parent"
+		    android:layout_height="wrap_content"
+		    android:layout_marginTop="5dp" >
 
+			<TextView
+			    android:id="@+id/textView6"
+			    android:layout_width="wrap_content"
+			    android:layout_height="wrap_content"
+			    android:textStyle="bold"
+			    android:textSize="15sp"
+			    android:text="Device: "/>
+
+			<TextView
+			    android:id="@+id/deviceModelNameTextView"
+			    android:layout_width="wrap_content"
+			    android:layout_height="wrap_content"
+			    android:textSize="15sp"
+			    android:text="loading..."/>
+
+		</LinearLayout>
+		
         <Button
             android:id="@+id/part1Button"
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="20dp"
             android:text="Part I "
             android:textSize="25sp" />
-
-        <TextView
-            android:id="@+id/textViewWhite"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="\n" />
-
-        <Button
-            android:id="@+id/part2Button"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Part II"
-            android:textSize="25sp" />
-
-        <TextView
-            android:id="@+id/textView2"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center_horizontal"
-            android:text="PartII: repeat PartI"
-            android:textSize="15sp" />
-
-    </LinearLayout>
-    <LinearLayout
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_alignRight="@+id/linearLayout1"
-        android:layout_below="@+id/linearLayout1"
-        android:gravity="bottom"
-        android:orientation="vertical" >
-
-        <Button
-            android:id="@+id/videoResolutionButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Video resolution" />
 
         <TextView
             android:id="@+id/textViewWhite2"
@@ -61,11 +45,136 @@
             android:text="\n" />
 
         <Button
-            android:id="@+id/photoResolutionButton"
+            android:id="@+id/part2Button"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Part II"
+            android:textSize="25sp" />
+
+        <TextView
+            android:id="@+id/textView2"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Photo resolution" />
+            android:text="PartII: repeat PartI until full\n"
+            android:textSize="15sp" />
+	
+		<LinearLayout
+		    android:layout_width="match_parent"
+		    android:layout_height="wrap_content" >
+			<TextView
+			    android:id="@+id/textView1"
+			    android:layout_width="wrap_content"
+			    android:layout_height="wrap_content"
+			    android:textStyle="bold"
+			    android:textSize="15sp"
+			    android:text="Database " />
+			<TextView
+			    android:id="@+id/databaseStatusTextView"
+			    android:layout_width="wrap_content"
+			    android:layout_height="wrap_content"
+			    android:text="loading..."
+			    android:textSize="15sp"
+			    android:textStyle="bold" />
+		</LinearLayout>
+		
+		<LinearLayout
+		    android:layout_width="match_parent"
+		    android:layout_height="wrap_content"
+		    android:layout_marginTop="5dp">
+			<TextView
+			    android:id="@+id/textView3"
+			    android:layout_width="wrap_content"
+			    android:layout_height="wrap_content"
+			 	android:textStyle="bold"
+			    android:text="SD card name: "
+			    android:textSize="15sp" />
 
+			<TextView
+			    android:id="@+id/sdCardNameTextView"
+			    android:layout_width="wrap_content"
+			    android:layout_height="wrap_content"
+			    android:text="no data"
+			    android:textSize="15sp"/>
+		</LinearLayout>
+		<LinearLayout
+		    android:layout_width="match_parent"
+		    android:layout_height="wrap_content">
+			<TextView
+			    android:id="@+id/textView4"
+			    android:layout_width="wrap_content"
+			    android:layout_height="wrap_content"
+			    android:text="CID:   "
+			    android:textSize="15sp" />
+
+			<TextView
+			    android:id="@+id/sdCardCIDTextView"
+			    android:layout_width="wrap_content"
+			    android:layout_height="wrap_content"
+			    android:text="no data"
+			    android:textSize="15sp" />
+		</LinearLayout>
+		<LinearLayout
+		    android:layout_width="match_parent"
+		    android:layout_height="wrap_content">	
+			<TextView
+			    android:id="@+id/textView5"
+			    android:layout_width="wrap_content"
+			    android:layout_height="wrap_content"
+			    android:text="CSD: "
+			    android:textSize="15sp" />
+
+			<TextView
+			    android:id="@+id/sdCardCSDTextView"
+			    android:layout_width="wrap_content"
+			    android:layout_height="wrap_content"
+			    android:text="no data"
+			    android:textSize="15sp" />
+
+		</LinearLayout>
+
+		<LinearLayout
+		    android:layout_width="match_parent"
+		    android:layout_height="wrap_content"
+		    android:layout_marginTop="5dp"
+		    android:orientation="vertical" >
+
+			<TextView
+			    android:id="@+id/textView7"
+			    android:layout_width="wrap_content"
+			    android:layout_height="wrap_content"
+			    android:layout_weight="1"
+			    android:textSize="15sp"
+			    android:textStyle="bold"
+			    android:text="Play photo speed" />
+			<SeekBar
+			    android:id="@+id/platPhotoSpeedSeekBar"
+			    android:layout_width="match_parent"
+			    android:layout_height="wrap_content"
+			    android:layout_weight="1" />
+			<TextView
+			    android:id="@+id/platPhotoSpeedSeekBarValueTextView"
+			    android:layout_width="wrap_content"
+			    android:layout_height="wrap_content"
+			    android:layout_weight="1"
+			    android:textSize="15sp"
+			    android:text="1000 ms" />
+		</LinearLayout>
+		<TextView
+            android:id="@+id/textViewWhite4"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="\n" />
+		
+		<CheckBox
+            android:id="@+id/SDcardPositionCheckBox"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:text="SD card is internal storage"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:visibility="visible" />
     </LinearLayout>
+   
 
 </RelativeLayout>

@@ -1,56 +1,65 @@
 package com.example.sdcardtest;
 
+import java.io.BufferedReader;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.Reader;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.http.HttpEntity;
+import org.apache.http.HttpResponse;
+import org.apache.http.NameValuePair;
+import org.apache.http.client.HttpClient;
+import org.apache.http.client.entity.UrlEncodedFormEntity;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.message.BasicNameValuePair;
+import org.apache.http.protocol.HTTP;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import android.app.Activity;
-import android.app.AlertDialog;
-import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.SharedPreferences;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager.NameNotFoundException;
+import android.graphics.Color;
 import android.hardware.Camera;
 import android.hardware.Camera.Size;
+import android.os.Build;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
-import android.widget.AdapterView;
-import android.widget.AdapterView.OnItemClickListener;
-import android.widget.ArrayAdapter;
 import android.widget.Button;
-import android.widget.ListView;
+import android.widget.CheckBox;
+import android.widget.SeekBar;
+import android.widget.TextView;
 import android.widget.Toast;
 
 public class MainActivity extends Activity {
 
 	/*
-	 * Button part1Button: sdcard test procedure run 1 time 
-	 * part2Button: sdcard test procedure run until sdcard capacity full 
-	 * videoResolutionButton: user selects test procedure video resolutions from phone support resolutions
-	 * photoResolutionButton: user selects test procedure photo resolutions from phone support resolutions
+	 * part1Button: sdcard test procedure run 1 time
+	 * part2Button: sdcard test procedure run until sdcard capacity full
 	 */
 	Button part1Button;
 	Button part2Button;
-	Button videoResolutionButton;
-	Button photoResolutionButton;
-	Camera camera;
-	final int VIDEO_TYPE = 0;
-	final int PHOTO_TYPE = 1;
-	CharSequence[] videoSizeArray;
-	CharSequence[] photoSizeArray;
-	boolean[] videoResolutionIsChecked;
-	boolean[] photoResolutionIsChecked;
-	boolean setVideoResolution = false;
-	boolean setPhotoResolution = false;
-	boolean videoDialogSelectAllClicked = false;
-	boolean photoDialogSelectAllClicked = false;
-	ArrayList<String> videoResolutionArrayList;
-	ArrayList<String> photoResolutionArrayList;
-	ArrayAdapter<String> videoResolutionArrayAdapter;
-	ArrayAdapter<String> photoResolutionArrayAdapter;
-	AlertDialog.Builder resolutionDialogBuilder;
-	AlertDialog resolutionDialog;
-	ListView videoResolutionListView;
-	ListView photoResolutionListView;
-	Button selectAllButton;
-	int currentDialog = -1;
+	CharSequence[] deviceDefaultCameraVideoResolution;//send to TestProc activity data
+	CharSequence[] deviceDefaultCameraPhotoResolution;//send to TestProc activity data
+	CheckBox sdcardPositionCheckBox;
+	TextView databaseStatusTextView;	//show database status
+	TextView sdcardNameTextView;		//show SD card name
+	TextView sdcardCIDTextView;		//show SD card CID
+	TextView sdcardCSDTextView;		//show SD card CSD
+	TextView deviceModelNameTextView;	//show device model name
+	TextView platPhotoSpeedSeekBarValueTextView;
+	SeekBar  playPhotoSpeedSeekBar;
+	int playPhotoIntervalTime;
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
@@ -58,268 +67,303 @@ public class MainActivity extends Activity {
 		setContentView(R.layout.activity_main);
 
 		initialize();
-		getPhoneSupportedSizes(VIDEO_TYPE);
-		getPhoneSupportedSizes(PHOTO_TYPE);
+		setAppTitle();
+		
+		playPhotoSpeedSeekBar.setMax(8);//setMax( (max - min) / step ); max:1000,min:200,step:100
+		playPhotoSpeedSeekBar.setProgress(8);
+		
+		loadSDcardSetting();
+		new Thread(new Runnable() {
+			public void run() {
+				try {
+					//show SD card info
+					showSDcardInfo();
+					
+					//connect database
+					switch (loadRevolutionFromDatabase()) {
+					case 1:
+						sendtoStatusTextView(databaseStatusTextView,"connection failed",false);
+						loadRevolutionFromAPI();
+						break;
+					case 2:
+						sendtoStatusTextView(databaseStatusTextView,"no device data",false);
+						loadRevolutionFromAPI();
+						break;
+					default:
+						sendtoStatusTextView(databaseStatusTextView,"connected",true);
+						break;
+					}
+				} catch (Exception e) {
+					//logData("TestProcedureListener: " + e);
+					e.printStackTrace();
+				}
+			}
+		}).start();
 	}
 
 	private void initialize() {
-
+		databaseStatusTextView = (TextView) this.findViewById(R.id.databaseStatusTextView);
+		sdcardNameTextView = (TextView) this.findViewById(R.id.sdCardNameTextView);
+		sdcardCIDTextView = (TextView) this.findViewById(R.id.sdCardCIDTextView);
+		sdcardCSDTextView = (TextView) this.findViewById(R.id.sdCardCSDTextView);
+		deviceModelNameTextView = (TextView) this.findViewById(R.id.deviceModelNameTextView);
+		platPhotoSpeedSeekBarValueTextView = (TextView) this.findViewById(R.id.platPhotoSpeedSeekBarValueTextView);
 		part1Button = (Button) this.findViewById(R.id.part1Button);
 		part2Button = (Button) this.findViewById(R.id.part2Button);
-		videoResolutionButton = (Button) this.findViewById(R.id.videoResolutionButton);
-		photoResolutionButton = (Button) this.findViewById(R.id.photoResolutionButton);
-
+		sdcardPositionCheckBox = (CheckBox) this.findViewById(R.id.SDcardPositionCheckBox);
+		playPhotoSpeedSeekBar = (SeekBar) this.findViewById(R.id.platPhotoSpeedSeekBar);
 		part1Button.setOnClickListener(ProcedureLister);
 		part2Button.setOnClickListener(ProcedureLister);
-		videoResolutionButton.setOnClickListener(ProcedureLister);
-		photoResolutionButton.setOnClickListener(ProcedureLister);
-		videoResolutionArrayList = new ArrayList<String>();
-		photoResolutionArrayList = new ArrayList<String>();
-		resolutionDialogBuilder = new AlertDialog.Builder(MainActivity.this);
-		videoResolutionArrayAdapter = new ArrayAdapter<String>(this, android.R.layout.simple_list_item_multiple_choice,
-				videoResolutionArrayList);
-		photoResolutionArrayAdapter = new ArrayAdapter<String>(this, android.R.layout.simple_list_item_multiple_choice,
-				photoResolutionArrayList);
+		playPhotoSpeedSeekBar.setOnSeekBarChangeListener(SeekBarLister);
+		if(Build.VERSION.SDK_INT<23)
+			sdcardPositionCheckBox.setVisibility(View.INVISIBLE);
+		deviceModelNameTextView.setText(android.os.Build.MODEL);
+		
+	}
+	
+	//setting app's title include version name
+	private void setAppTitle() {
+		try {
+			PackageInfo pkgInfo = getPackageManager().getPackageInfo(getPackageName(), 0);
+			setTitle(getResources().getString(R.string.app_name)+"( v."+pkgInfo.versionName+" )");
+		} catch (NameNotFoundException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 	}
 
-	/*
-	 * ButtonListener
-	 */
+	//ButtonListener
 	private View.OnClickListener ProcedureLister = new View.OnClickListener() {
 		@Override
 		public void onClick(View v) {
-			int part = 0;
+			saveSDcardSetting();
 			if (v == part1Button) {
-				part = 1;
-				if ((setVideoResolution == true) && (setPhotoResolution == true)) {
-					checkUserChoice();
-					changeActivity(part);
-				} else {
-					toast("Please set video/photo resolution");
-				}
+				changeActivity(1);
 			}
+			//part2 button clicked
 			if (v == part2Button) {
-				part = 2;
-				if ((setVideoResolution == true) && (setPhotoResolution == true)) {
-					checkUserChoice();
-					changeActivity(part);
-				} else {
-					toast("Please set video/photo resolution");
-				}
-			}
-			if (v == videoResolutionButton) {
-				currentDialog = VIDEO_TYPE;
-				setVideoResolution = true;
-				setAlertDialog(currentDialog);
-			}
-			if (v == photoResolutionButton) {
-				currentDialog = PHOTO_TYPE;
-				setPhotoResolution = true;
-				setAlertDialog(currentDialog);
+				changeActivity(2);
 			}
 		}
 	};
+	
+	//SeekBarListener
+	private SeekBar.OnSeekBarChangeListener SeekBarLister = new SeekBar.OnSeekBarChangeListener() {
 
-	private void setAlertDialog(int dialog) {
+        @Override
+        public void onStopTrackingTouch(SeekBar seekBar) {
 
-		if ((dialog != VIDEO_TYPE) && (dialog != PHOTO_TYPE)) {
-			toast("Dialog Type Error");
-			return;
-		}
-		resolutionDialogBuilder.setTitle("Support resolution");
-		if (dialog == VIDEO_TYPE)
-			resolutionDialogBuilder.setMultiChoiceItems(R.array.video_resolution_items, null, null);
-		else if (dialog == PHOTO_TYPE) 
-			resolutionDialogBuilder.setMultiChoiceItems(R.array.photo_resolution_items, null, null);
-		
-		resolutionDialogBuilder.setNegativeButton("Select/Deselect All", null);
-		resolutionDialogBuilder.setPositiveButton("OK", null);
-		resolutionDialog = resolutionDialogBuilder.create();
-		resolutionDialog.show();
+        }
+       
+        @Override
+        public void onStartTrackingTouch(SeekBar seekBar) {
+            //description.setText("ss");
+        }
+        
+        @Override
+        public void onProgressChanged(SeekBar seekBar, int progress,
+                boolean fromUser) {
+        	//min:200,step:100,max:1000
+        	playPhotoIntervalTime = 200 + (progress * 100);
+        	platPhotoSpeedSeekBarValueTextView.setText(playPhotoIntervalTime+" ms");
+        }
+    };
 
-		if (dialog == VIDEO_TYPE) {
-			videoResolutionListView = resolutionDialog.getListView();
-			videoResolutionListView.setAdapter(videoResolutionArrayAdapter);
-			for (int i = 0; i < videoResolutionIsChecked.length; i++)
-				if (videoResolutionIsChecked[i] == true)
-					videoResolutionListView.setItemChecked(i, true);
-		} else if (dialog == PHOTO_TYPE) {
-			photoResolutionListView = resolutionDialog.getListView();
-			photoResolutionListView.setAdapter(photoResolutionArrayAdapter);
-			for (int i = 0; i < photoResolutionIsChecked.length; i++)
-				if (photoResolutionIsChecked[i] == true)
-					photoResolutionListView.setItemChecked(i, true);
-		}
-
-		Button okButton = resolutionDialog.getButton(DialogInterface.BUTTON_POSITIVE);
-		okButton.setText("OK");
-		okButton.setOnClickListener(clickOKButton);
-		selectAllButton = resolutionDialog.getButton(DialogInterface.BUTTON_NEGATIVE);
-		if (((dialog == VIDEO_TYPE) && videoDialogSelectAllClicked)
-				|| ((dialog == PHOTO_TYPE) && photoDialogSelectAllClicked))
-			selectAllButton.setText("Deselect All");
-		else
-			selectAllButton.setText("Select All");
-
-		selectAllButton.setOnClickListener(clickSelectAllButton);
-
-		if (dialog == VIDEO_TYPE) {
-			videoResolutionListView.setOnItemClickListener(listViewItemListener);
-		} else if (dialog == PHOTO_TYPE) {
-			photoResolutionListView.setOnItemClickListener(listViewItemListener);
-		}
-
-	}
-
-	private OnItemClickListener listViewItemListener = new OnItemClickListener() {
-		@Override
-		public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-			boolean isChecked;
-
-			if (currentDialog == VIDEO_TYPE) {
-				isChecked = videoResolutionListView.isItemChecked(position);
-				videoResolutionIsChecked[position] = isChecked;
-				if (videoDialogSelectAllClicked && (!isChecked)) {
-					changeButtonText("Select all");
-					videoResolutionArrayAdapter.notifyDataSetChanged();
-					videoDialogSelectAllClicked = false;
-				}
-			} else if (currentDialog == PHOTO_TYPE) {
-				isChecked = photoResolutionListView.isItemChecked(position);
-				photoResolutionIsChecked[position] = isChecked;
-				if (photoDialogSelectAllClicked && (!isChecked)) {
-					changeButtonText("Select all");
-					photoResolutionArrayAdapter.notifyDataSetChanged();
-					photoDialogSelectAllClicked = false;
-				}
-			}
-		}
-	};
-
-	private View.OnClickListener clickOKButton = new View.OnClickListener() {
-		@Override
-		public void onClick(View v) {
-			// TODO Auto-generated method stub
-			resolutionDialog.dismiss();
-		}
-	};
-
-	private View.OnClickListener clickSelectAllButton = new View.OnClickListener() {
-		@Override
-		public void onClick(View v) {
-			// TODO Auto-generated method stub
-			if (currentDialog == VIDEO_TYPE) {
-				if (!videoDialogSelectAllClicked) {
-					videoDialogSelectAllClicked = true;
-					changeButtonText("Deselect all");
-					for (int i = 0; i < videoResolutionIsChecked.length; i++) {
-						videoResolutionListView.setItemChecked(i, true);
-						videoResolutionIsChecked[i] = true;
-					}
-				} else {
-					videoDialogSelectAllClicked = false;
-					changeButtonText("Select all");
-					for (int i = 0; i < videoResolutionIsChecked.length; i++) {
-						videoResolutionListView.setItemChecked(i, false);
-						videoResolutionIsChecked[i] = false;
-					}
-				}
-			} else if (currentDialog == PHOTO_TYPE) {
-				if (!photoDialogSelectAllClicked) {
-					photoDialogSelectAllClicked = true;
-					changeButtonText("Deselect all");
-					for (int i = 0; i < photoResolutionIsChecked.length; i++) {
-						photoResolutionListView.setItemChecked(i, true);
-						photoResolutionIsChecked[i] = true;
-					}
-				} else {
-					photoDialogSelectAllClicked = false;
-					changeButtonText("Select all");
-					for (int i = 0; i < photoResolutionIsChecked.length; i++) {
-						photoResolutionListView.setItemChecked(i, false);
-						photoResolutionIsChecked[i] = false;
-					}
-				}
-			} else {
-				toast("Dialog Type Error");
-			}
-		}
-	};
-
-	private void checkUserChoice() {
-		for (int i = 0; i < videoResolutionIsChecked.length; i++) {
-			if (videoResolutionIsChecked[i] == false)
-				videoSizeArray[i] = null;
-		}
-
-		for (int i = 0; i < photoResolutionIsChecked.length; i++) {
-			if (photoResolutionIsChecked[i] == false)
-				photoSizeArray[i] = null;
-		}
-	}
-
-	public void getPhoneSupportedSizes(int type) {
-		if ((type != VIDEO_TYPE) && (type != PHOTO_TYPE)) {
-			toast("Error type : " + type);
-			return;
-		}
-
-		List<Size> sizeList;
+	//load video and photo resolution from database
+	private int loadRevolutionFromDatabase(){
+		String deviceModel = android.os.Build.MODEL;
 		try {
-			camera = Camera.open();
-			if (type == VIDEO_TYPE) {
-				sizeList = camera.getParameters().getSupportedVideoSizes();
-				videoSizeArray = new CharSequence[sizeList.size()];
-				videoResolutionIsChecked = new boolean[sizeList.size()];
-				for (int i = 0; i < sizeList.size(); i++) {
-					videoSizeArray[i] = sizeList.get(i).width + "x" + sizeList.get(i).height;
-					videoResolutionArrayList.add(sizeList.get(i).width + "x" + sizeList.get(i).height);
-				}
-			} else if (type == PHOTO_TYPE) {
-				sizeList = camera.getParameters().getSupportedPictureSizes();
-				photoSizeArray = new CharSequence[sizeList.size()];
-				photoResolutionIsChecked = new boolean[sizeList.size()];
-				for (int i = 0; i < sizeList.size(); i++) {
-					photoSizeArray[i] = sizeList.get(i).width + "x" + sizeList.get(i).height;
-					photoResolutionArrayList.add(sizeList.get(i).width + "x" + sizeList.get(i).height);
-				}
-			}
-			camera.release();
-		} catch (Exception e) {
-			// logData("getPhoneSupportedSizes(): " + e);
-			toast("" + e);
+			JSONObject jsonData;
+			String result = connectDatabase("SELECT Video_Pixel,Pic_Pixel FROM pixel WHERE Name=\'"+deviceModel+"\'");
+			if(result==null)
+				return 1;	//connection failed
+			else if(result.equals("-1"))
+				return 2;	//no device data
+			//json parser
+			JSONArray jsonArray = new JSONArray(result);
+			for(int i = 0; i < jsonArray.length(); i++) {
+				jsonData = jsonArray.getJSONObject(i);
+				deviceDefaultCameraVideoResolution = jsonData.getString("Video_Pixel").split(" */ *");
+				deviceDefaultCameraPhotoResolution = jsonData.getString("Pic_Pixel").split(" */ *");
+	        }
+		} catch (JSONException e) {
+			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
+		return 0;
+	}
+
+	//connect database
+	private String connectDatabase(String queryString) {
+		String result = null;
+        try {
+            HttpClient httpClient = new DefaultHttpClient();
+            HttpPost httpPost = new HttpPost("http://127.0.0.1/android.php");
+            ArrayList<NameValuePair> params = new ArrayList<NameValuePair>();
+            params.add(new BasicNameValuePair("query_string", queryString));
+            httpPost.setEntity(new UrlEncodedFormEntity(params, HTTP.UTF_8));
+            HttpResponse httpResponse = httpClient.execute(httpPost);
+     
+            //check connection status 200=OK
+            if(httpResponse.getStatusLine().getStatusCode()!=200)
+            	return null;
+            
+            HttpEntity httpEntity = httpResponse.getEntity();
+            InputStream inputStream = httpEntity.getContent();
+            BufferedReader bufReader = new BufferedReader(new InputStreamReader(inputStream, "utf-8"), 8);
+            StringBuilder builder = new StringBuilder();
+            String line = null;
+            while((line = bufReader.readLine()) != null) {
+            	if(line.equals("null"))
+            		return "-1";
+                builder.append(line + "\n");
+            }
+            inputStream.close();
+            result = builder.toString();
+        } catch(Exception e) {
+        	e.printStackTrace();
+            Log.e("TestProc", e.toString());
+        }
+        return result;
+	}
+	//if database connection failed,load resolution from API
+	private int loadRevolutionFromAPI() {
+		Camera camera = null;
+		CameraController cameraContrl = new CameraController(camera);
+		String resolutionTmp = null;
+		if(!cameraContrl.openCamera())
+			return 1;
+		//load video resolution
+		List<Size> sizeList = cameraContrl.getSupportedVideoSizes();
+		deviceDefaultCameraVideoResolution = new CharSequence[sizeList.size()];
+		for(int i=0; i<sizeList.size(); i++) {
+			if(sizeList.get(i).width<sizeList.get(i).height)
+				resolutionTmp = sizeList.get(i).height + "x" + sizeList.get(i).width;
+			else
+				resolutionTmp = sizeList.get(i).width + "x" + sizeList.get(i).height;
+			deviceDefaultCameraVideoResolution[i] = resolutionTmp;
+		}
+		//load photo resolution
+		sizeList = cameraContrl.getSupportedPhotoSizes();
+		deviceDefaultCameraPhotoResolution = new CharSequence[sizeList.size()];
+		for(int i=0; i<sizeList.size(); i++) {
+			if(sizeList.get(i).width<sizeList.get(i).height)
+				resolutionTmp = sizeList.get(i).height + "x" + sizeList.get(i).width;
+			else
+				resolutionTmp = sizeList.get(i).width + "x" + sizeList.get(i).height;
+			deviceDefaultCameraPhotoResolution[i] = resolutionTmp;
+		}
+		cameraContrl.closeCamera();
+		return 0;
+	}
+	
+	//load SD card checkBox
+	private boolean loadSDcardSetting() {
+		try {
+			BufferedReader settingReader = new BufferedReader(new FileReader(TestProcActivity.getLogFileDirPath() + "/SettingData"));
+			String strTmp;
+			String[] strSplitTmp;
+			while((strTmp = settingReader.readLine()) != null) {
+				strSplitTmp = strTmp.split(" ");
+				if(strSplitTmp[0].equals("sdcardSetting")){
+					if(strSplitTmp[1].equals("1"))
+						sdcardPositionCheckBox.setChecked(true);
+					else
+						sdcardPositionCheckBox.setChecked(false);
+				}
+
+				if(strSplitTmp[0].equals("playPhotoInterval")){
+					playPhotoIntervalTime = Integer.parseInt(strSplitTmp[1]);
+					playPhotoSpeedSeekBar.setProgress((playPhotoIntervalTime-200)/100);
+				}
+			}
+			return true;
+		} catch (FileNotFoundException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+			return false;
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		return false;
+	}
+
+	//save widget data
+	private boolean saveSDcardSetting() {
+		SharedPreferences settings = getSharedPreferences(getString(R.string.SettingData),0);
+		settings.edit().putString("sdcardSetting", sdcardPositionCheckBox.isChecked() ? "1":"0").commit();
+		settings.edit().putString("playPhotoInterval", Integer.toString(playPhotoIntervalTime)).commit();
+		return true;
+	}
+
+	//show SD card detail Info
+	private void showSDcardInfo() {
+		Object localObject;
+		String sdCardData;
+		String sdcardInfoPath = "/sys/block/mmcblk1/device/";
+		try {
+			//SD card name
+			localObject = new FileReader(sdcardInfoPath + "name");
+			sdCardData = new BufferedReader((Reader)localObject).readLine();
+	        sendtoStatusTextView(sdcardNameTextView,sdCardData,true);
+	        //SD card CID
+	        localObject = new FileReader(sdcardInfoPath + "cid");
+			sdCardData = new BufferedReader((Reader)localObject).readLine();
+			sendtoStatusTextView(sdcardCIDTextView,"0x"+sdCardData.toUpperCase(),true);
+			//SD card CSD
+	        localObject = new FileReader(sdcardInfoPath + "csd");
+			sdCardData = new BufferedReader((Reader)localObject).readLine();
+			sendtoStatusTextView(sdcardCSDTextView,"0x"+sdCardData.toUpperCase(),true);
+			//SD card SCR
+	        localObject = new FileReader(sdcardInfoPath + "scr");
+			sdCardData = new BufferedReader((Reader)localObject).readLine();
+	        Log.d("TestProc", "SD card SCR = " + sdCardData);
+	       
+	    } catch (Exception e) {
+	    	// TODO Auto-generated catch block
+	    	e.printStackTrace();
+	    }
+	}
+	
+	private void changeActivity(int part) {
+		Intent intent = new Intent();
+		intent.setClass(MainActivity.this, CheckVideoResolutionActivity.class);
+		Bundle bundle = new Bundle();
+		bundle.putInt("part", part);
+		bundle.putInt("playPhotoInterval", playPhotoIntervalTime);
+		bundle.putString("sdcardSetting", sdcardPositionCheckBox.isChecked() ? "1":"0");
+		bundle.putCharSequenceArray("deviceDefaultCameraVideoResolutionArray", deviceDefaultCameraVideoResolution);
+		bundle.putCharSequenceArray("deviceDefaultCameraPhotoResolutionArray", deviceDefaultCameraPhotoResolution);
+		intent.putExtras(bundle);
+		startActivity(intent);
+		MainActivity.this.finish();
 	}
 
 	public void toast(final String x) {
 		runOnUiThread(new Runnable() {
 			@Override
 			public void run() {
-				Toast.makeText(MainActivity.this, x, Toast.LENGTH_LONG).show();
+				Toast.makeText(MainActivity.this, x, Toast.LENGTH_SHORT).show();
 			}
 		});
 	}
-
-	public void changeButtonText(final String x) {
+	
+	public static void showLogMessage(String message) {
+		Log.e("TestProc", message);
+	}
+	
+	public void sendtoStatusTextView(final TextView textView,final String x,final Boolean status) {
 		runOnUiThread(new Runnable() {
 			@Override
 			public void run() {
-				selectAllButton.setText(x);
+				textView.setText(x);
+				if(status)
+					textView.setTextColor(Color.parseColor("#008000"));
+				else
+					textView.setTextColor(Color.parseColor("#FF0000"));
 			}
 		});
-	}
-
-	private void changeActivity(int part) {
-		Intent intent = new Intent();
-		intent.setClass(MainActivity.this, TestProcActivity.class);
-		Bundle bundle = new Bundle();
-		bundle.putInt("part", part);
-		bundle.putCharSequenceArray("videoSizeArray", videoSizeArray);
-		bundle.putCharSequenceArray("photoSizeArray", photoSizeArray);
-		intent.putExtras(bundle);
-		startActivity(intent);
-		MainActivity.this.finish();
 	}
 
 }
